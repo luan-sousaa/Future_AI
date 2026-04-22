@@ -8,7 +8,7 @@ from google.genai import types
 
 from src.prompts.prompt import create_prompt
 from src.repositories.custom_gemini import CustomGemini
-from Future_AI.src.tools.db_tools_mocked import (
+from src.tools.db_tools_mocked import (
     search_for_product_name,
     get_product_details,
     get_prices_summary
