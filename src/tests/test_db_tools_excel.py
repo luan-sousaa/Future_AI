@@ -29,13 +29,13 @@ def run_manual_tests() -> None:
         print("Falha ao carregar o Excel.")
 
     print("\n=== TESTE 2: SEARCH PRODUCT BY NAME ===")
-    pprint(search_product_by_name("churrasqueira"))
+    pprint(search_product_by_name("tabaco"))
 
     print("\n=== TESTE 3: GET PRODUCT BY CODE ===")
     pprint(get_product_by_code("00021"))
 
     print("\n=== TESTE 4: STOCK AND PRICE SUMMARY ===")
-    pprint(get_product_stock_and_price_summary("00021"))
+    pprint(get_product_stock_and_price_summary("PRD00002"))
 
     print("\n=== TESTE 5: LOW STOCK PRODUCTS ===")
     pprint(get_low_stock_products(limit=5))

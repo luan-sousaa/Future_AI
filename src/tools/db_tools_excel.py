@@ -18,6 +18,7 @@ COLUNAS = [
     "preco_sintetico",
 ]
 
+# Busca de dados
 def load_excel_data() -> pd.DataFrame | None:
     """
     Load and normalize the Excel inventory table for reuse by the other tools.
@@ -35,6 +36,7 @@ def load_excel_data() -> pd.DataFrame | None:
             skiprows=4, # -> Pula linhas desenecessárias
             header=None,
             names=COLUNAS,
+            engine="openpyxl",
         )
         
         df = df.dropna(how="all") # -> Remove linhas vazias
@@ -165,6 +167,7 @@ def get_product_stock_and_price_summary(product_code: str) -> dict | None:
         return None
     
 
+# Controle de Estoque
 def get_low_stock_products(limit: int = 20) -> list[dict]:
     """Return products whose current stock is below the configured minimum stock."""
     try:

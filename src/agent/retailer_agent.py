@@ -14,6 +14,12 @@ from src.tools.db_tools_mocked import (
     get_prices_summary
 )
 
+from src.tools.db_tools_excel import (
+    search_product_by_name,
+    get_product_by_code,
+    get_product_stock_and_price_summary
+)
+
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -31,9 +37,9 @@ def create_agent() -> LlmAgent:
         description="An agent that helps retailers optimize their inventory management and sales strategies.",
         instruction=create_prompt(),
         tools = [
-            search_for_product_name,
-            get_product_details,
-            get_prices_summary
+            search_product_by_name,
+            get_product_by_code,
+            get_product_stock_and_price_summary
         ],
         planner=BuiltInPlanner(
             thinking_config=types.ThinkingConfig(
