@@ -1,6 +1,7 @@
-import pytest
-import pandas as pd
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
 
 from src.tools.db_tools_excel import (
     search_product_by_name,

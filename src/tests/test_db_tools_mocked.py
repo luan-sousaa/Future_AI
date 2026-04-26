@@ -1,4 +1,3 @@
-import pytest
 from src.tools.db_tools_mocked import (
     load_categorias,
     list_all_products,

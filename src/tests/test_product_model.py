@@ -1,4 +1,3 @@
-import pytest
 from src.repositories.product_model import Produto, PrecoProduto, Categoria
 
 
