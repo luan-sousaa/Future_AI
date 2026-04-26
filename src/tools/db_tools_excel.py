@@ -2,6 +2,8 @@ import pandas as pd
 from pathlib import Path
 import logging
 
+from google.adk.tools import ToolContext
+
 EXCEL_PATH = Path(__file__).resolve().parent.parent / "repositories" / "pivot-5_com_precos.xlsx"
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ COLUNAS = [
     "preco_sintetico",
 ]
 
-# Busca de dados
+# HELPERS
 def load_excel_data() -> pd.DataFrame | None:
     """
     Load and normalize the Excel inventory table for reuse by the other tools.
@@ -59,7 +61,47 @@ def load_excel_data() -> pd.DataFrame | None:
         logger.exception("Failed to load Excel file.")
         return None
     
-def search_product_by_name(term: str, limit: int = 10) -> list[dict]:
+def _get_product_by_code(product_code: str) -> dict | None:
+    try:
+        logger.info("Fetching product by code: {product_code}")
+        
+        if not product_code or not product_code.strip():
+            logger.warning("Empty product code")
+            return None
+        
+        df = load_excel_data()
+        if df is None:
+            return None
+        
+        resultado = df[df["codigo_produto"] == product_code].copy()
+        
+        if resultado.empty:
+            logger.wearning(f"No product found with code: {product_code}")
+            return None
+        
+        row = resultado.iloc[0]
+        
+        produto = {
+            "codigo_produto": row["codigo_produto"],
+            "descricao_completa": row["descricao_completa"],
+            "familia_produto": row["familia_produto"],
+            "codigo_ean_gtin": row["codigo_ean_gtin"],
+            "produto_inativo": row["produto_inativo"],
+            "unidade": row["unidade"],
+            "quantidade": None if pd.isna(row["quantidade"]) else float(row["quantidade"]),
+            "estoque_minimo": None if pd.isna(row["estoque_minimo"]) else float(row["estoque_minimo"]),
+            "preco_sintetico": None if pd.isna(row["preco_sintetico"]) else float(row["preco_sintetico"]),
+        }
+        
+        logger.info(f"Product found: {produto['descricao_completa']}")
+        return produto
+    
+    except Exception:
+        logger.exception("Failed to fetch product by code.")
+        return None
+  
+# Tools agente    
+def search_product_by_name(tool_context: ToolContext, term: str, limit: int = 10) -> list[dict]:
     """
     Return matching products by name or description for product discovery.
     """
@@ -85,86 +127,92 @@ def search_product_by_name(term: str, limit: int = 10) -> list[dict]:
                 "unidade",
                 "preco_sintetico",
             ],
-        ]
+        ].head(limit)
         
         records = resultados.head(limit).to_dict(orient="records")
+        
+        tool_context.state["last_search_term"] = term
+        tool_context.state["last_search_results"] = records
+        
         logger.info(f"Found {len(records)} matching products")
         return records
     except Exception:
         logger.exception("Failed to search products by name.")
         return []
     
-def get_product_by_code(product_code: str) -> dict | None:
+def get_product_by_code(tool_context: ToolContext, product_code: str) -> dict | None:
     """
     Return one product record by its exact internal product code.
     """
     try:
         logger.info(f"Getting product by code: {product_code}")
         
-        if not product_code or not product_code.strip():
-            logger.warning("Empty product code")
+        produto = _get_product_by_code(product_code)
+        if produto is None:
             return None
         
-        df = load_excel_data()
-        if df is None:
-            return None
+        selected_codes = tool_context.state.get("selected_product_codes", [])
+        selected_products = tool_context.state.get("selected_products", [])
         
-        resultado = df[df["codigo_produto"] == product_code].copy()
+        if produto["codigo_produto"] not in selected_codes:
+            selected_codes.append(produto["codigo_produto"])
+            selected_products.append(produto)
+            logger.info(f"Product code {produto['codigo_produto']} added to current selection")
+        else:
+            logger.info(f"Product code {produto['codigo_produto']} already in current selection")
         
-        if resultado.empty:
-            logger.warning(f"No product found with code: {product_code}")
-            return None
+        tool_context.state["selected_product_codes"] = selected_codes
+        tool_context.state["selected_products"] = selected_products
         
-        row = resultado.iloc[0]
-        
-        produto = {
-            "codigo_produto": row["codigo_produto"],
-            "descricao_completa": row["descricao_completa"],
-            "familia_produto": row["familia_produto"],
-            "codigo_ean_gtin": row["codigo_ean_gtin"],
-            "produto_inativo": row["produto_inativo"],
-            "unidade": row["unidade"],
-            "quantidade": None if pd.isna(row["quantidade"]) else float(row["quantidade"]),
-            "estoque_minimo": None if pd.isna(row["estoque_minimo"]) else float(row["estoque_minimo"]),
-            "preco_sintetico": None if pd.isna(row["preco_sintetico"]) else float(row["preco_sintetico"]),
-        }
-        
-        logger.info(f"Product found: {produto['descricao_completa']}")
+        logger.info(f"Total selected products: {len(selected_products)}")
         return produto
     
     except Exception:
-        logger.exception("Failed to get product by code")
+        logger.exception("Failed to select product by code")
         return None
     
-def get_product_stock_and_price_summary(product_code: str) -> dict | None:
+def get_product_stock_and_price_summary(tool_context: ToolContext, product_code: str) -> dict | None:
     """
     Return a compact stock and pricing summary for one product code.
     """
     try:
         logger.info(f"Building stock and price summary for code: {product_code}")
         
-        produto = get_product_by_code(product_code)
-        if produto is None:
-            logger.warning(f"Cannot build summary, product not found for code: {product_code}")
-            return None
+        selected_codes = tool_context.state.get("selected_product_codes", [])
         
-        resumo = {
-            "codigo_produto": produto["codigo_produto"],
-            "descricao_completa": produto["descricao_completa"],
-            "familia_produto": produto["familia_produto"],
-            "unidade": produto["unidade"],
-            "produto_inativo": produto["produto_inativo"],
-            "quantidade_em_estoque": produto["quantidade"],
-            "estoque_minimo": produto["estoque_minimo"],
-            "preco_sintetico": produto["preco_sintetico"],
-        }
+        if not selected_codes:
+            logger.warning("No products currently selected for summary")
+            return []
         
-        logger.info(f"Summary created for product code: {product_code}")
-        return resumo
+        summaries: list[dict] = []
+        
+        for code in selected_codes:
+            produto = _get_product_by_code(code)
+            if produto is None:
+                logger.warning(f"Product code {code} not found for summary")
+                continue
+            
+            resumo = {
+                "codigo_produto": produto["codigo_produto"],
+                "descricao_completa": produto["descricao_completa"],
+                "familia_produto": produto["familia_produto"],
+                "unidade": produto["unidade"],
+                "produto_inativo": produto["produto_inativo"],
+                "quantidade_em_estoque": produto["quantidade"],
+                "estoque_minimo": produto["estoque_minimo"],
+                "preco_sintetico": produto["preco_sintetico"],
+            }
+            
+            summaries.append(resumo)
+        
+        tool_context.state["last_products_summary"] = summaries
+        
+        logger.info(f"Built summaries for {len(summaries)} selected products")
+        return summaries
     
     except Exception:
         logger.exception(f"Failed to get stock and price summary for product code: {product_code}")
-        return None
+        return []
     
 
 # Controle de Estoque
