@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+
 @dataclass
 class PrecoProduto:
     mercado: str
     preco: float
+
 
 @dataclass
 class Produto:
@@ -26,7 +28,7 @@ class Produto:
         if not validos:
             return None
 
-        mercado, preco = min(validos.items(), key = lambda item: item[1])
+        mercado, preco = min(validos.items(), key=lambda item: item[1])
         return PrecoProduto(mercado=mercado, preco=preco)
 
     def maior_preco(self) -> Optional[PrecoProduto]:
@@ -34,7 +36,7 @@ class Produto:
         if not validos:
             return None
 
-        mercado, preco = max(validos.items(), key = lambda item: item[1])
+        mercado, preco = max(validos.items(), key=lambda item: item[1])
         return PrecoProduto(mercado=mercado, preco=preco)
 
     def precos_ordenados(self) -> list:
@@ -42,8 +44,9 @@ class Produto:
 
         return [
             PrecoProduto(mercado=mercado, preco=preco)
-            for mercado, preco in sorted(validos.items(), key = lambda item: item[1])
+            for mercado, preco in sorted(validos.items(), key=lambda item: item[1])
         ]
+
 
 @dataclass
 class Categoria:

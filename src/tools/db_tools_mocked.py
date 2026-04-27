@@ -1,13 +1,13 @@
 from typing import Optional, Tuple
 
+import json
+import logging
+from pathlib import Path
+
 from src.repositories.product_model import (
     Produto,
     Categoria
-    )
-
-import json
-from pathlib import Path
-import logging
+)
 
 logger = logging.getLogger(__name__)
 
