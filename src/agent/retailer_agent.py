@@ -20,6 +20,8 @@ from src.tools.db_tools_excel import (
     get_product_stock_and_price_summary
 )
 
+from src.tools.payment_tools import processar_pagamento
+
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -39,12 +41,12 @@ def create_agent() -> LlmAgent:
         tools = [
             search_product_by_name,
             get_product_by_code,
-            get_product_stock_and_price_summary
+            get_product_stock_and_price_summary,
+            processar_pagamento
         ],
         planner=BuiltInPlanner(
             thinking_config=types.ThinkingConfig(
                 include_thoughts=False,
-                thinking_level="low"
             ),
         ),
         generate_content_config= types.GenerateContentConfig(
