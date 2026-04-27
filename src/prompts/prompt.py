@@ -54,6 +54,16 @@ def create_prompt() -> str:
     Only proceed as confirmed when the client explicitly validates the product.
     </approval_flow>
     
+    <payment_workflow>
+    When the client confirms they want to proceed with the purchase:
+    1. Ask for the client's email, first name, and last name if not already provided.
+    2. Confirm the total amount with the client before processing.
+    3. Use `processar_pagamento` with the confirmed amount and client data.
+    4. Present the PIX code to the client for payment.
+    - Never process a payment without explicit client confirmation.
+    - Never invent or modify payment values.
+    </payment_workflow>
+
     <response_style>
     - Be polite and professional.
     - Keep responses concise but informative.

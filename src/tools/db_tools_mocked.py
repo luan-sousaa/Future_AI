@@ -1,4 +1,4 @@
-from __future__ import annotations
+from typing import Optional, Tuple
 
 import json
 import logging
@@ -14,66 +14,66 @@ logger = logging.getLogger(__name__)
 DB_PATH = Path(__file__).resolve().parent.parent / "repositories" / "price_table.json"
 
 
-def _load_db() -> dict | None:
+def _load_db() -> Optional[dict]:
     try:
         if not DB_PATH.exists():
             raise FileNotFoundError(f"Database file {DB_PATH} does not exist.")
-            
+
         with DB_PATH.open('r', encoding="utf-8") as f:
             data = json.load(f)
-        
+
         if not isinstance(data, dict):
             raise ValueError("The JSON needs to be an object (dictionary) at the top level.")
-        
+
         if "categorias" not in data:
             raise KeyError("The 'categorias' field was not found in the database.")
-        
+
         if not isinstance(data["categorias"], list):
             raise TypeError("The 'categorias' field must be a list.")
-        
+
         return data
-    
+
     except FileNotFoundError:
         logger.exception("Failed to find the database file.")
         return None
-        
+
     except json.JSONDecodeError:
         logger.exception("Invalid JSON or bad encoding in the database file.")
         return None
-    
+
     except Exception:
         logger.exception("Failed to load database.")
         return None
 
-def _find_product_with_category(produto_id: str) -> tuple[Produto, Categoria] | None:
+def _find_product_with_category(produto_id: str) -> Optional[Tuple[Produto, Categoria]]:
     try:
         if not produto_id or not produto_id.strip():
             return None
-        
+
         produto_id = produto_id.lower().strip()
-        
+
         for categoria in load_categorias():
             for produto in categoria.produtos:
                 if produto.id.lower() == produto_id:
                     return produto, categoria
-        
+
         return None
-    
+
     except Exception:
         logger.exception("Failed to find product with category in database.")
         return None
-        
-def load_categorias() -> list[Categoria]:
+
+def load_categorias() -> list:
     try:
         data = _load_db()
         if data is None:
             return []
-        
-        categorias: list[Categoria] = []
-        
+
+        categorias = []
+
         for categoria_json in data.get("categorias", []):
-            produtos: list[Produto] = []
-            
+            produtos = []
+
             for produto_json in categoria_json.get("produtos", []):
                 produto = Produto(
                     id=produto_json.get("id", ""),
@@ -82,43 +82,43 @@ def load_categorias() -> list[Categoria]:
                     unidade_medida=produto_json.get("unidade_medida", ""),
                     precos=produto_json.get("precos", {}),
                 )
-                
+
                 produtos.append(produto)
-            
+
             categoria = Categoria(
                 id=categoria_json.get("id", ""),
                 nome=categoria_json.get("nome", ""),
                 produtos=produtos,
             )
             categorias.append(categoria)
-        
+
         return categorias
-    
+
     except Exception:
         logger.exception("Failed to load categories from database.")
         return []
-    
-def list_all_products() -> list[Produto]:
+
+def list_all_products() -> list:
     try:
         categorias = load_categorias()
-        produtos: list[Produto] = []
-        
+        produtos = []
+
         for categoria in categorias:
             produtos.extend(categoria.produtos)
-            
+
         return produtos
-    
+
     except Exception:
         logger.exception("Failed to list all products from database.")
         return []
-    
-def search_for_product_name(termo: str) -> list[dict]:
+
+def search_for_product_name(termo: str) -> list:
     try:
         if not termo or not termo.strip():
             return []
 
         termo = termo.lower().strip()
-        resultados: list[dict] = []
+        resultados = []
 
         for categoria in load_categorias():
             for produto in categoria.produtos:
@@ -141,8 +141,8 @@ def search_for_product_name(termo: str) -> list[dict]:
     except Exception:
         logger.exception("Failed to search products by name in database.")
         return []
-    
-def get_product_by_id(produto_id: str) -> Produto | None:
+
+def get_product_by_id(produto_id: str) -> Optional[Produto]:
     try:
         resultado = _find_product_with_category(produto_id)
         if resultado is None:
@@ -154,8 +154,8 @@ def get_product_by_id(produto_id: str) -> Produto | None:
     except Exception:
         logger.exception("Failed to search product by id in database.")
         return None
-    
-def get_product_details(produto_id: str) -> dict | None:
+
+def get_product_details(produto_id: str) -> Optional[dict]:
     try:
         resultado = _find_product_with_category(produto_id)
         if resultado is None:
@@ -174,23 +174,23 @@ def get_product_details(produto_id: str) -> dict | None:
     except Exception:
         logger.exception("Failed to get product details from database.")
         return None
-    
-def get_prices_summary(produto_id: str) -> dict | None:
+
+def get_prices_summary(produto_id: str) -> Optional[dict]:
     try:
         resultado = _find_product_with_category(produto_id)
         if resultado is None:
             return None
-        
+
         produto, categoria = resultado
-        
+
         precos_ordenados = [
             {"mercado": item.mercado, "preco": item.preco}
             for item in produto.precos_ordenados()
         ]
-        
+
         menor = produto.menor_preco()
         maior = produto.maior_preco()
-        
+
         return {
             "id": produto.id,
             "nome": produto.nome,
@@ -208,8 +208,7 @@ def get_prices_summary(produto_id: str) -> dict | None:
             "quantidade_de_mercados": len(precos_ordenados),
             "precos": precos_ordenados,
         }
-        
+
     except Exception:
         logger.exception("Failed to get price summary for product from database.")
         return None
-        

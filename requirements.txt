@@ -2,3 +2,5 @@ google-adk
 google-cloud
 openpyxl
 pandas
+python-multipart
+eval_type_backport
