@@ -8,13 +8,8 @@ from google.genai import types
 
 from src.prompts.prompt import create_prompt
 from src.repositories.custom_gemini import CustomGemini
-from src.tools.db_tools_mocked import (
-    search_for_product_name,
-    get_product_details,
-    get_prices_summary
-)
 
-from src.tools.db_tools_excel import (
+from src.tools.mongo_tools import (
     search_product_by_name,
     get_product_by_code,
     get_product_stock_and_price_summary
@@ -54,3 +49,4 @@ def create_agent() -> LlmAgent:
         )
     )
     
+ 
