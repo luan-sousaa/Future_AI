@@ -18,5 +18,9 @@ class MongoService:
     
     def get_products_collection(self) -> Collection:
         db = self.get_database()
-        return db[self.config.collection_name]
+        return db[self.config.products_collection_name]
+    
+    def get_payments_collection(self) -> Collection:
+        db = self.get_database()
+        return db[self.config.payments_collection_name]
     

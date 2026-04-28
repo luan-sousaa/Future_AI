@@ -1,6 +1,8 @@
 import logging
 import uuid
 
+from src.services.payment_record import PaymentRecordService
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,12 +30,24 @@ def processar_pagamento(valor: float, email: str, nome: str, sobrenome: str) -> 
     try:
         logger.info("Processando pagamento mock de R$ %.2f para %s", valor, email)
 
-        return {
+        resultado = {
             "status": "pending",
             "pix_code": f"00020101021226880014br.gov.bcb.pix{uuid.uuid4().hex[:20]}",
             "pix_qr_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         }
+        
+        payment_record = PaymentRecordService()
+        payment_record.save_payment_record(
+            source="mock",
+            value=valor,
+            email=email,
+            name=nome,
+            last_name=sobrenome,
+            payment_result=resultado,
+        )
 
+        return resultado
+        
     except Exception:
         logger.exception("Falha ao processar pagamento mock.")
         return {"error": True, "message": "Falha ao processar o pagamento."}
