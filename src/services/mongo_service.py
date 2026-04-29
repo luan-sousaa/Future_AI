@@ -24,3 +24,7 @@ class MongoService:
         db = self.get_database()
         return db[self.config.payments_collection_name]
     
+    def get_sales_history_collection(self) -> Collection:
+        db = self.get_database()
+        return db["sales_history"]
+    

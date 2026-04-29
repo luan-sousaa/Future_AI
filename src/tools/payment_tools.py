@@ -2,11 +2,19 @@ import logging
 import uuid
 
 from src.services.payment_record import PaymentRecordService
+from src.services.sales_record import SalesHistoryService
 
 logger = logging.getLogger(__name__)
 
 
-def processar_pagamento(valor: float, email: str, nome: str, sobrenome: str) -> dict:
+def processar_pagamento(
+    valor: float,
+    email: str,
+    nome: str,
+    sobrenome: str,
+    product_name: str,
+    quantity: int = 1,
+    ) -> dict:
     """
     Processa um pagamento PIX para o cliente.
 
@@ -36,6 +44,7 @@ def processar_pagamento(valor: float, email: str, nome: str, sobrenome: str) -> 
             "pix_qr_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         }
         
+        # Salvar registro de pagamento
         payment_record = PaymentRecordService()
         payment_record.save_payment_record(
             source="mock",
@@ -45,6 +54,21 @@ def processar_pagamento(valor: float, email: str, nome: str, sobrenome: str) -> 
             last_name=sobrenome,
             payment_result=resultado,
         )
+        
+        # Salvar registro de venda
+        # venda só é armazenada no DB se for aprovada após o pagamento
+        if resultado.get("status") == "approved" and product_name:
+            sales_record = SalesHistoryService()
+            unit_price = valor / quantity if quantity > 0 else valor
+            sales_record.save_sale_record(
+                product_name=product_name,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_value=valor,
+                email=email,
+                name=nome,
+                last_name=sobrenome,
+            )
 
         return resultado
         
