@@ -4,4 +4,8 @@ openpyxl
 pandas
 python-multipart
 eval_type_backport
+httpx
+fastapi
+uvicorn
+python-dotenv
 pymongo

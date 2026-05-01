@@ -1,8 +1,8 @@
+import logging
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from pathlib import Path
-import logging
 
 from google.adk.tools import ToolContext
 
@@ -103,15 +103,19 @@ def _get_product_by_code(product_code: str) -> Optional[dict]:
         return None
 
 # Tools agente
-def search_product_by_name(tool_context: ToolContext, term: str, limit: int = 10) -> list:
+def search_product_by_name(
+    term: str,
+    limit: int = 10,
+    tool_context: Optional[ToolContext] = None,
+) -> list:
     """
     Return matching products by name or description for product discovery.
     """
     try:
-        logger.info(f"Searching for products with term: {term}")
+        logger.info("Searching for products with term: %s", term)
 
         if not term or not term.strip():
-            logger.warning("Empty seach term")
+            logger.warning("Empty search term")
             return []
 
         df = load_excel_data()
@@ -133,88 +137,81 @@ def search_product_by_name(tool_context: ToolContext, term: str, limit: int = 10
 
         records = resultados.to_dict(orient="records")
 
-        tool_context.state["last_search_term"] = term
-        tool_context.state["last_search_results"] = records
+        if tool_context is not None:
+            tool_context.state["last_search_term"] = term
+            tool_context.state["last_search_results"] = records
 
-        logger.info(f"Found {len(records)} matching products")
+        logger.info("Found %d matching products", len(records))
         return records
     except Exception:
         logger.exception("Failed to search products by name.")
         return []
 
-def get_product_by_code(tool_context: ToolContext, product_code: str) -> Optional[dict]:
+def get_product_by_code(
+    product_code: str,
+    tool_context: Optional[ToolContext] = None,
+) -> Optional[dict]:
     """
     Return one product record by its exact internal product code.
     """
     try:
-        logger.info(f"Getting product by code: {product_code}")
+        logger.info("Getting product by code: %s", product_code)
 
         produto = _get_product_by_code(product_code)
         if produto is None:
             return None
 
-        selected_codes = tool_context.state.get("selected_product_codes", [])
-        selected_products = tool_context.state.get("selected_products", [])
+        if tool_context is not None:
+            selected_codes = tool_context.state.get("selected_product_codes", [])
+            selected_products = tool_context.state.get("selected_products", [])
 
-        if produto["codigo_produto"] not in selected_codes:
-            selected_codes.append(produto["codigo_produto"])
-            selected_products.append(produto)
-            logger.info(f"Product code {produto['codigo_produto']} added to current selection")
-        else:
-            logger.info(f"Product code {produto['codigo_produto']} already in current selection")
+            if produto["codigo_produto"] not in selected_codes:
+                selected_codes.append(produto["codigo_produto"])
+                selected_products.append(produto)
 
-        tool_context.state["selected_product_codes"] = selected_codes
-        tool_context.state["selected_products"] = selected_products
+            tool_context.state["selected_product_codes"] = selected_codes
+            tool_context.state["selected_products"] = selected_products
 
-        logger.info(f"Total selected products: {len(selected_products)}")
         return produto
 
     except Exception:
         logger.exception("Failed to select product by code")
         return None
 
-def get_product_stock_and_price_summary(tool_context: ToolContext, product_code: str) -> list:
+def get_product_stock_and_price_summary(
+    product_code: str,
+    tool_context: Optional[ToolContext] = None,
+) -> Optional[dict]:
     """
     Return a compact stock and pricing summary for one product code.
     """
     try:
-        logger.info(f"Building stock and price summary for code: {product_code}")
+        logger.info("Building stock and price summary for code: %s", product_code)
 
-        selected_codes = tool_context.state.get("selected_product_codes", [])
+        produto = _get_product_by_code(product_code)
+        if produto is None:
+            logger.warning("Product code %s not found for summary", product_code)
+            return None
 
-        if not selected_codes:
-            logger.warning("No products currently selected for summary")
-            return []
+        resumo = {
+            "codigo_produto": produto["codigo_produto"],
+            "descricao_completa": produto["descricao_completa"],
+            "familia_produto": produto["familia_produto"],
+            "unidade": produto["unidade"],
+            "produto_inativo": produto["produto_inativo"],
+            "quantidade_em_estoque": produto["quantidade"],
+            "estoque_minimo": produto["estoque_minimo"],
+            "preco_sintetico": produto["preco_sintetico"],
+        }
 
-        summaries = []
+        if tool_context is not None:
+            tool_context.state["last_product_summary"] = resumo
 
-        for code in selected_codes:
-            produto = _get_product_by_code(code)
-            if produto is None:
-                logger.warning(f"Product code {code} not found for summary")
-                continue
-
-            resumo = {
-                "codigo_produto": produto["codigo_produto"],
-                "descricao_completa": produto["descricao_completa"],
-                "familia_produto": produto["familia_produto"],
-                "unidade": produto["unidade"],
-                "produto_inativo": produto["produto_inativo"],
-                "quantidade_em_estoque": produto["quantidade"],
-                "estoque_minimo": produto["estoque_minimo"],
-                "preco_sintetico": produto["preco_sintetico"],
-            }
-
-            summaries.append(resumo)
-
-        tool_context.state["last_products_summary"] = summaries
-
-        logger.info(f"Built summaries for {len(summaries)} selected products")
-        return summaries
+        return resumo
 
     except Exception:
-        logger.exception(f"Failed to get stock and price summary for product code: {product_code}")
-        return []
+        logger.exception("Failed to get stock and price summary for code: %s", product_code)
+        return None
 
 
 # Controle de Estoque

@@ -118,16 +118,17 @@ def get_product_by_code(
             
         tool_context.state["selected_product_codes"] = selected_codes
         tool_context.state["selected_products"] = selected_products
-        
+
         logger.info(f"Total selected products: {len(selected_products)}")
-        
+        return produto
+
     except Exception:
         logger.exception("Failed to select product by code from MongoDB")
         return None
     
 def get_product_stock_and_price_summary(
     tool_context: ToolContext,
-    product_code: str,
+    product_code: str = "",
 ) -> list[dict]:
     """
     Return stock and price summaries for the currently selected MongoDB products.
