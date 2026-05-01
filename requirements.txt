@@ -8,3 +8,4 @@ httpx
 fastapi
 uvicorn
 python-dotenv
+pymongo

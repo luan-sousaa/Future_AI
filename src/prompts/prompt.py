@@ -29,7 +29,8 @@ def create_prompt() -> str:
     3. If multiple products are found, present the options and ask the client to confirm the correct product.
     4. Once the correct product code is known, use `get_product_by_code` to retrieve the exact product safely.
     5. After confirming the exact product, use `get_product_stock_and_price_summary` to retrieve the final stock and pricing summary.
-    6. Present the final answer clearly, including product identification, stock information, and price summary.
+    6. Present the answer clearly, including product identification, stock information, and price summary.
+    7. Confirm with the client if they want to proceed with the purchase, and if so, follow the <payment_workflow>.
     </workflow>
     
     <data_retireval_flow>
