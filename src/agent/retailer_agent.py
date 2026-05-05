@@ -12,7 +12,8 @@ from src.repositories.custom_gemini import CustomGemini
 from src.tools.mongo_tools import (
     search_product_by_name,
     get_product_by_code,
-    get_product_stock_and_price_summary
+    get_product_stock_and_price_summary,
+    check_product_availability
 )
 
 from src.tools.payment_tools import processar_pagamento
@@ -37,6 +38,7 @@ def create_agent() -> LlmAgent:
             search_product_by_name,
             get_product_by_code,
             get_product_stock_and_price_summary,
+            check_product_availability,
             processar_pagamento
         ],
         planner=BuiltInPlanner(

@@ -28,3 +28,11 @@ class MongoService:
         db = self.get_database()
         return db["sales_history"]
     
+    def get_inventory_snapshots_collection(self) -> Collection:
+        db = self.get_database()
+        return db[self.config.inventory_snapshots_collection_name]
+    
+    def get_inventory_diff_collection(self) -> Collection:
+        db = self.get_database()
+        return db[self.config.inventory_diff_collection_name]
+    

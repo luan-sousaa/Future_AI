@@ -86,7 +86,7 @@ class SalesHistoryService:
             raise
         
         
-    def get_sales_summart(
+    def get_sales_summary(
         self,
         date: datetime = None
     ) -> dict[str, Any]:
