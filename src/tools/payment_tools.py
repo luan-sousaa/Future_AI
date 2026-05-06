@@ -3,6 +3,7 @@ import uuid
 
 from src.services.payment_record import PaymentRecordService
 from src.services.sales_record import SalesHistoryService
+from src.services.inventory import InventoryService
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ def processar_pagamento(
     email: str,
     nome: str,
     sobrenome: str,
+    product_code: str,
     product_name: str,
     quantity: int = 1,
     ) -> dict:
@@ -39,7 +41,7 @@ def processar_pagamento(
         logger.info("Processando pagamento mock de R$ %.2f para %s", valor, email)
 
         resultado = {
-            "status": "pending",
+            "status": "approved",
             "pix_code": f"00020101021226880014br.gov.bcb.pix{uuid.uuid4().hex[:20]}",
             "pix_qr_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         }
@@ -59,7 +61,10 @@ def processar_pagamento(
         # venda só é armazenada no DB se for aprovada após o pagamento
         if resultado.get("status") == "approved" and product_name:
             sales_record = SalesHistoryService()
+            inventory_service = InventoryService()
+            
             unit_price = valor / quantity if quantity > 0 else valor
+            
             sales_record.save_sale_record(
                 product_name=product_name,
                 quantity=quantity,
@@ -68,6 +73,11 @@ def processar_pagamento(
                 email=email,
                 name=nome,
                 last_name=sobrenome,
+            )
+            
+            inventory_service.decrease_stock_after_sale(
+                product_code=product_code,
+                sold_quantity=quantity,
             )
 
         return resultado

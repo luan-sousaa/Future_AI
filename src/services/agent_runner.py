@@ -14,7 +14,7 @@ _sessions: dict[str, str] = {}  # phone_number → session_id
 def _get_runner() -> Runner:
     global _runner
     if _runner is None:
-        from adk_app.agent import root_agent
+        from retailer_app.agent import root_agent
         _runner = Runner(
             agent=root_agent,
             app_name=APP_NAME,

@@ -6,7 +6,7 @@ from google.adk.planners import BuiltInPlanner
 
 from google.genai import types
 
-from src.prompts.prompt import create_prompt
+from src.prompts.retailer_prompt import create_prompt
 from src.repositories.custom_gemini import CustomGemini
 
 from src.tools.mongo_tools import (

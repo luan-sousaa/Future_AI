@@ -7,7 +7,6 @@ from src.services.mongo_service import MongoService
 from src.config.mongo_config import MongoConfig
 
 logger = logging.getLogger(__name__)
-created_at = datetime.now(timezone.utc)
 
 class PaymentRecordService:
     def __init__(self) -> None:
@@ -52,7 +51,7 @@ class PaymentRecordService:
                 "error": payment_result.get("error", False),
                 "message": payment_result.get("message"),
                 "gateway_response": payment_result,
-                "created_at": created_at,
+                "created_at": datetime.now(timezone.utc),
             }
                 
             self.collection.insert_one(document)

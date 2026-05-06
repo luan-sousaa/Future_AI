@@ -231,3 +231,50 @@ class InventoryService:
         except Exception:
             logger.exception("Failed to retrieve current stock by product code")
             raise
+        
+    def decrease_stock_after_sale(
+        self,
+        product_code: str,
+        sold_quantity: int,
+    ) -> dict:
+        """
+        Decrease the current stock quantity after an approved sale
+        """
+        try:
+            if sold_quantity <= 0:
+                raise ValueError("Sold quantity must be greater then 0")
+            
+            product = self.products_collection.find_one(
+                {"codigo_produto": product_code},
+                {"_id": 0}
+            )
+            
+            if not product:
+                raise ValueError(f"Product not found: {product_code}")
+            
+            current_quantity = product.get("quantidade") or 0
+            new_quantity = current_quantity - sold_quantity
+            
+            self.products_collection.update_one(
+                {"codigo_produto": product_code},
+                {
+                    "$set": {
+                        "quantidade": new_quantity,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+            
+            logger.info(f"Stock updated for product: {product_code} | old = {current_quantity} | new = {new_quantity}")
+            
+            return {
+                "codigo_produto": product_code,
+                "quantidade_anterior": current_quantity,
+                "quantidade_vendida": sold_quantity,
+                "quantidade_atual": new_quantity,
+            }
+            
+        except Exception:
+            logger.exception("Failed to decrease stock after sale")
+            raise
+        
