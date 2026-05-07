@@ -59,7 +59,7 @@ def processar_pagamento(
         
         # Salvar registro de venda
         # venda só é armazenada no DB se for aprovada após o pagamento
-        if resultado.get("status") == "approved" and product_name:
+        if resultado.get("status") == "approved" and product_code and product_name:
             sales_record = SalesHistoryService()
             inventory_service = InventoryService()
             

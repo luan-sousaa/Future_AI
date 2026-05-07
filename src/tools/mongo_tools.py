@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def _get_products_collection():
     config = MongoConfig()
     mongo_service = MongoService(config)
-    return mongo_service.get_products_collection()
+    return mongo_service.get_products_collection(read_only=True)
 
 def _get_product_by_code(product_code: str) -> Optional[dict]:
     """

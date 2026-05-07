@@ -12,7 +12,7 @@ class PaymentRecordService:
     def __init__(self) -> None:
         config = MongoConfig()
         mongo_service = MongoService(config)
-        self.collection = mongo_service.get_payments_collection()
+        self.collection = mongo_service.get_payments_collection(read_only=False)
         
     def save_payment_record(
         self,

@@ -12,7 +12,7 @@ class SalesHistoryService:
     def __init__(self) -> None:
         config = MongoConfig()
         mongo_service = MongoService(config)
-        self.collection = mongo_service.get_sales_history_collection()
+        self.collection = mongo_service.get_sales_history_collection(read_only=False)
         
     def save_sale_record(
         self,
@@ -40,11 +40,11 @@ class SalesHistoryService:
             Saved document in MongoDB
         """
         try:
-            today = datetime.now(timezone.utc)
+            sale_data = datetime.now(timezone.utc).date()
             
             document = {
                 "sale_id": str(uuid.uuid4()),
-                "date": today,
+                "date": sale_data,
                 "product_name": product_name,
                 "quantity": quantity,
                 "unit_price": unit_price,
@@ -63,7 +63,7 @@ class SalesHistoryService:
             logger.exception("Failed to record sale")
             raise
         
-    def get_daily_sales(self, date: datetime = None) -> list[dict]:
+    def get_daily_sales(self, date = None) -> list[dict]:
         """
         Returns all the sales from a specific day
         

@@ -13,9 +13,11 @@ class InventoryService:
     def __init__(self) -> None:
         config = MongoConfig()
         mongo_service = MongoService(config)
-        self.snapshot_collection = mongo_service.get_inventory_snapshots_collection()
-        self.diff_collection = mongo_service.get_inventory_diff_collection()
-        self.products_collection = mongo_service.get_products_collection()
+        self.snapshot_collection = mongo_service.get_inventory_snapshots_collection(read_only=False)
+        self.diff_collection = mongo_service.get_inventory_diff_collection(read_only=False)
+        
+        self.products_read_collection = mongo_service.get_products_collection(read_only=True)
+        self.products_write_collection = mongo_service.get_products_collection(read_only=False)
         
     def save_inventory_snapshot(
         self,
@@ -207,7 +209,7 @@ class InventoryService:
         Return current stock information for a product based on the products collection
         """
         try:
-            product = self.products_collection.find_one(
+            product = self.products_read_collection.find_one(
                 {"codigo_produto": product_code},
                 {"_id": 0}
             )
@@ -244,7 +246,7 @@ class InventoryService:
             if sold_quantity <= 0:
                 raise ValueError("Sold quantity must be greater then 0")
             
-            product = self.products_collection.find_one(
+            product = self.products_read_collection.find_one(
                 {"codigo_produto": product_code},
                 {"_id": 0}
             )
@@ -255,7 +257,7 @@ class InventoryService:
             current_quantity = product.get("quantidade") or 0
             new_quantity = current_quantity - sold_quantity
             
-            self.products_collection.update_one(
+            self.products_write_collection.update_one(
                 {"codigo_produto": product_code},
                 {
                     "$set": {

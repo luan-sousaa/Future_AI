@@ -13,6 +13,7 @@ from src.tools.mongo_tools import (
     get_inactive_products,
     get_low_stock_products,
     search_product_by_name,
+    get_product_by_code
 )
 
 load_dotenv()
@@ -33,6 +34,7 @@ def create_inventory_agent() -> LlmAgent:
         instruction = create_inventory_prompt(),
         tools = [
             search_product_by_name,
+            get_product_by_code,
             check_product_availability,
             get_low_stock_products,
             get_inactive_products,
