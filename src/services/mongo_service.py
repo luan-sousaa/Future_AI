@@ -34,7 +34,7 @@ class MongoService:
     
     def get_sales_history_collection(self, read_only: bool = True) -> Collection:
         db = self.get_read_database() if read_only else self.get_write_database()
-        return db["sales_history"]
+        return db[self.config.sales_history_collecttion_name]
     
     def get_inventory_snapshots_collection(self, read_only: bool = True) -> Collection:
         db = self.get_read_database() if read_only else self.get_write_database()

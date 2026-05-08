@@ -280,3 +280,140 @@ class InventoryService:
             logger.exception("Failed to decrease stock after sale")
             raise
         
+    def get_stock_status_summary(self) -> dict[str, int]:
+        """
+        Return a high-level summary of current stock conditions.
+        """
+        try:
+            total_products = self.products_read_collection.count_documents({})
+            
+            low_stock = self.products_read_collection.count_documents(
+                {
+                    "$expr": {
+                        "$lt": ["$quantidade", "$estoque_minimo"]
+                    }
+                }
+            )
+            
+            out_of_stock = self.products_read_collection.count_documents(
+                {
+                    "quantidade": 0
+                }
+            )
+            
+            negative_stock = self.products_read_collection.count_documents(
+                {
+                    "quantidade": {"$lt": 0}
+                }
+            )
+            
+            inactive_products = self.products_read_collection.count_documents(
+                {
+                    "produto_inativo": {
+                        "$regex": "^sim$",
+                        "$option": "i",
+                    }
+                }
+            )
+            
+            summary = {
+                "total_produtos": total_products,
+                "abaixo_estoque_minimo": low_stock,
+                "sem_estoque": out_of_stock,
+                "estoque_negativo": negative_stock,
+                "inativos": inactive_products,
+            }
+            
+            logger.info("Stock status summary generated successfully")
+            return summary
+        
+        except Exception:
+            logger.exception("Failed to generate stock status summary")
+            raise
+        
+    def get_out_of_stock_products(self, limit: int = 20) -> list[dict[str, Any]]:
+        """ 
+        Return products with zero stock.
+        """
+        try:
+            products = list(
+            self.products_read_collection.collection_find(
+                {"quantidade": 0},
+                {
+                    "_id": 0,
+                    "codigo_produto": 1,
+                    "descricao_completa": 1,
+                    "familia_produto": 1,
+                    "unidade": 1,
+                    "quantidade": 1,
+                    "estoque_minimo": 1,
+                    "preco_sintetico": 1,
+                },
+            ).limit(limit)
+        ) 
+            
+            logger.info(f"Retrieved {len(products)} out of stock products")
+            return products
+        
+        except Exception:
+            logger.exception("Failed to retrieve out of stock products")
+            raise
+        
+    def get_negative_stock_products(self, limit:int = 20) -> list[dict[str, Any]]:
+        """
+        Return products with negatives stock.
+        """
+        try:
+            products = list(
+                self.products_read_collection.find(
+                    {
+                        "quantidade": 0
+                    },
+                    {
+                        "_id": 0,
+                        "codigo_produto": 1,
+                        "descricao_completa": 1,
+                        "familia_produto": 1,
+                        "unidade": 1,
+                        "quantidade": 1,
+                        "estoque_minimo": 1,
+                        "preco_sintetico": 1,
+                    },
+                ).limit(limit)
+            )
+            
+            logger.info(f"Retrieved {len(products)} negative stock products")
+            return products
+            
+        except Exception:
+            logger.exception("Failed to retrieve negative stock products")
+            raise
+    
+    def get_inventory_diff_by_period(
+        self,
+        reference_date: str,
+        reference_period: str,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        Return saved inventory diff documents for a specific day
+        """
+        try:
+            diffs = list(
+                self.diff_collection.find(
+                    {
+                        "reference_date": reference_date,
+                        "reference_period": reference_period,
+                    },
+                    {"_id": 0},
+                )
+                .sort("saida_estimada", -1)
+                .limit(limit)
+            )
+            
+            logger.info(f"Retrieved {len(diffs)} inventory diffs for date = {reference_date} and period = {reference_period}")
+            return diffs
+        
+        except Exception:
+            logger.exception("Failed to retrieve inventory diffs by period")
+            raise

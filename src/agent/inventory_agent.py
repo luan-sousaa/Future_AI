@@ -13,7 +13,11 @@ from src.tools.mongo_tools import (
     get_inactive_products,
     get_low_stock_products,
     search_product_by_name,
-    get_product_by_code
+    get_product_by_code,
+    get_negative_stock_products,
+    get_out_stock_products,
+    get_stock_status_summary,
+    get_inventory_diff_by_period
 )
 
 load_dotenv()
@@ -38,6 +42,10 @@ def create_inventory_agent() -> LlmAgent:
             check_product_availability,
             get_low_stock_products,
             get_inactive_products,
+            get_negative_stock_products,
+            get_out_stock_products,
+            get_stock_status_summary,
+            get_inventory_diff_by_period
         ],
         planner = BuiltInPlanner(
             thinking_config = types.ThinkingConfig(

@@ -276,6 +276,17 @@ def check_product_availability(
     Check wheter the requested quantity can be fulfilled with current stock
     """
     try:
+        selected_products = tool_context.state.get("selected_products", [])
+        
+        if not product_code and selected_products:
+            product_code = selected_products.get("codigo_produto", "")
+            
+        if not product_code:
+            return {
+                "disponivel": False,
+                "message": "No product is currently selected for stock validation"
+            }
+        
         logger.info(f"Checking product availability for code = {product_code} | quantity = {requested_quantity}")
         
         inventory_service = InventoryService()
@@ -333,3 +344,85 @@ def check_product_availability(
             "disponivel": False,
             "message": "Failed to check product availability.",
         }
+        
+    
+def get_stock_status_summary() -> dict:
+    """
+    Return a high-level stock status summary from MongoDB.
+    """
+    try:
+        logger.info("Building stock status summary from MongoDB")
+        
+        inventory_service = InventoryService()
+        summary = inventory_service.get_stock_status_summary()
+        
+        logger.info("Stock status summary built successfully")
+        return summary
+    
+    except Exception:
+        logger.exception("Failed to build stock status summary from MongoDB.")
+        return {
+            "total_produtos": 0,
+            "produtos_em_falta": 0,
+            "produtos_estoque_baixo": 0,
+            "produtos_estoque_ok": 0,
+        }
+        
+def get_out_stock_products(limit: int = 20) -> list[dict]:
+    """
+    Return products with zero stock from MongoDB
+    """
+    try:
+        logger.info("Building out-of-stock products list from MongoDB")
+        
+        inventory_service = InventoryService()
+        records = inventory_service.get_out_of_stock_products(limit=limit)
+        
+        logger.info("Out-of-stock products list built successfully")
+        return records
+    
+    except Exception:
+        logger.exception("Failed to get out-of-stock products from MongoDB.")
+        return []
+    
+def get_negative_stock_products(limit: int = 20) -> list[dict]:
+    """
+    Return products with negative stock from MongoDB.
+    """
+    try:
+        logger.info("Building negative-stock products list from MongoDB")
+        
+        inventory_service = InventoryService()
+        records = inventory_service.get_negative_stock_products(limit=limit)
+        
+        logger.info("Negative-stock products list built successfully")
+        return records
+    
+    except Exception:
+        logger.exception("Failed to get negative-stock products from MongoDB.")
+        return []
+    
+def get_inventory_diff_by_period(
+    reference_date: str,
+    reference_period: str,
+    limit: int = 20,
+) -> list[dict]:
+    """
+    Return inventory diff records for a specific date and period
+    """
+    try:
+        logger.info(f"Building inventory diff by period for date = {reference_date} | period = {reference_period}")
+        
+        inventory_service = InventoryService()
+        records = inventory_service.get_inventory_diff_by_period(
+            reference_date=reference_date,
+            reference_period=reference_period,
+            limit=limit,
+        )
+        
+        logger.info("Inventory diff by period built successfully")
+        return records
+    
+    except Exception:
+        logger.exception("Failed to get inventory diff by period from MongoDB.")
+        return []

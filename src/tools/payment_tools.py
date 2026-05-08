@@ -5,17 +5,20 @@ from src.services.payment_record import PaymentRecordService
 from src.services.sales_record import SalesHistoryService
 from src.services.inventory import InventoryService
 
+from google.adk.tools import ToolContext
+
 logger = logging.getLogger(__name__)
 
 
 def processar_pagamento(
+    tool_context: ToolContext,
     valor: float,
     email: str,
     nome: str,
     sobrenome: str,
-    product_code: str,
-    product_name: str,
     quantity: int = 1,
+    product_code: str = "",
+    product_name: str = "",
     ) -> dict:
     """
     Processa um pagamento PIX para o cliente.
@@ -38,6 +41,20 @@ def processar_pagamento(
           - message (opcional): mensagem de erro
     """
     try:
+        selected_product = tool_context.state.get("selected_product", {})
+        
+        if not product_code and selected_product:
+            product_code = selected_product.get("codigo_produto", "")
+        
+        if not product_name and selected_product:
+            product_name = selected_product.get("descricao_completa", "")
+            
+        if not product_code or not product_name:
+            return {
+                "error": True,
+                "message": "No product is currently selected for payment"
+            }
+        
         logger.info("Processando pagamento mock de R$ %.2f para %s", valor, email)
 
         resultado = {
