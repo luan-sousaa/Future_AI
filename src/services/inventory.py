@@ -388,6 +388,39 @@ class InventoryService:
         except Exception:
             logger.exception("Failed to retrieve negative stock products")
             raise
+        
+    def get_low_stock_products(self, limit: int = 20) -> list[dict[str, Any]]:
+        """
+        Return products whose current stock is below the configured minimum stock.
+        """
+        try:
+            products = list(
+                self.products_read_collection.find(
+                    {
+                        "$expr": {
+                        "$lt": ["$quantidade", "$estoque_minimo"]
+                        }
+                    },
+                    {
+                        "_id": 0,
+                        "codigo_produto": 1,
+                        "descricao_completa": 1,
+                        "familia_produto": 1,
+                        "unidade": 1,
+                        "quantidade": 1,
+                        "estoque_minimo": 1,
+                        "preco_sintetico": 1,
+                        "produto_inativo": 1,
+                    },
+                ).limit(limit)
+            )
+            
+            logger.info(f"Retrieved {len(products)} low stock products")
+            return products
+        
+        except Exception:
+            logger.exception("Failed to retrieve low stock products")
+            raise
     
     def get_inventory_diff_by_period(
         self,

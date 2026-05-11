@@ -402,6 +402,23 @@ def get_negative_stock_products(limit: int = 20) -> list[dict]:
         logger.exception("Failed to get negative-stock products from MongoDB.")
         return []
     
+def get_low_stock_products(limit: int = 20) -> list[dict]:
+    """
+    Return products whose stock is below the configured minimum value.
+    """
+    try:
+        logger.info("Searching low stock products in MongoDB")
+        
+        inventory_service = InventoryService()
+        records = inventory_service.get_low_stock_products(limit=limit)
+        
+        logger.info(f"Found {len(records)} low stock MongoDB products")
+        return records
+    
+    except Exception:
+        logger.exception("Failed to get low stock products from MongoDB.")
+        return []
+    
 def get_inventory_diff_by_period(
     reference_date: str,
     reference_period: str,
