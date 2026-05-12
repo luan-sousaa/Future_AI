@@ -174,33 +174,7 @@ class InventoryService:
         except Exception:
             logger.exception("Failed to generate inventory diff")
             raise
-        
-    def get_inventory_diff(
-        self,
-        reference_date: str,
-        reference_period: str,
-    ) -> list[dict[str, Any]]:
-        """
-        Return saved inventory diff documents for a specific day and period
-        """
-        try:
-            diffs = list(
-                self.diff_collection.find(
-                    {
-                        "reference_date": reference_date,
-                        "reference_period": reference_period,
-                    },
-                    {"_id": 0},
-                )
-            )
-            
-            logger.info(f"Retrieved {len(diffs)} inventory diffs for date = {reference_date} and period = {reference_period}")
-            return diffs
-        except Exception:
-            logger.exception("Failed to retrieve inventory diffs")
-            raise
-        
-        
+             
     def get_current_stock_by_product_code(
         self,
         product_code: str,  
@@ -279,148 +253,6 @@ class InventoryService:
         except Exception:
             logger.exception("Failed to decrease stock after sale")
             raise
-        
-    def get_stock_status_summary(self) -> dict[str, int]:
-        """
-        Return a high-level summary of current stock conditions.
-        """
-        try:
-            total_products = self.products_read_collection.count_documents({})
-            
-            low_stock = self.products_read_collection.count_documents(
-                {
-                    "$expr": {
-                        "$lt": ["$quantidade", "$estoque_minimo"]
-                    }
-                }
-            )
-            
-            out_of_stock = self.products_read_collection.count_documents(
-                {
-                    "quantidade": 0
-                }
-            )
-            
-            negative_stock = self.products_read_collection.count_documents(
-                {
-                    "quantidade": {"$lt": 0}
-                }
-            )
-            
-            inactive_products = self.products_read_collection.count_documents(
-                {
-                    "produto_inativo": {
-                        "$regex": "^sim$",
-                        "$option": "i",
-                    }
-                }
-            )
-            
-            summary = {
-                "total_produtos": total_products,
-                "abaixo_estoque_minimo": low_stock,
-                "sem_estoque": out_of_stock,
-                "estoque_negativo": negative_stock,
-                "inativos": inactive_products,
-            }
-            
-            logger.info("Stock status summary generated successfully")
-            return summary
-        
-        except Exception:
-            logger.exception("Failed to generate stock status summary")
-            raise
-        
-    def get_out_of_stock_products(self, limit: int = 20) -> list[dict[str, Any]]:
-        """ 
-        Return products with zero stock.
-        """
-        try:
-            products = list(
-            self.products_read_collection.collection_find(
-                {"quantidade": 0},
-                {
-                    "_id": 0,
-                    "codigo_produto": 1,
-                    "descricao_completa": 1,
-                    "familia_produto": 1,
-                    "unidade": 1,
-                    "quantidade": 1,
-                    "estoque_minimo": 1,
-                    "preco_sintetico": 1,
-                },
-            ).limit(limit)
-        ) 
-            
-            logger.info(f"Retrieved {len(products)} out of stock products")
-            return products
-        
-        except Exception:
-            logger.exception("Failed to retrieve out of stock products")
-            raise
-        
-    def get_negative_stock_products(self, limit:int = 20) -> list[dict[str, Any]]:
-        """
-        Return products with negatives stock.
-        """
-        try:
-            products = list(
-                self.products_read_collection.find(
-                    {
-                        "quantidade": 0
-                    },
-                    {
-                        "_id": 0,
-                        "codigo_produto": 1,
-                        "descricao_completa": 1,
-                        "familia_produto": 1,
-                        "unidade": 1,
-                        "quantidade": 1,
-                        "estoque_minimo": 1,
-                        "preco_sintetico": 1,
-                    },
-                ).limit(limit)
-            )
-            
-            logger.info(f"Retrieved {len(products)} negative stock products")
-            return products
-            
-        except Exception:
-            logger.exception("Failed to retrieve negative stock products")
-            raise
-        
-    def get_low_stock_products(self, limit: int = 20) -> list[dict[str, Any]]:
-        """
-        Return products whose current stock is below the configured minimum stock.
-        """
-        try:
-            products = list(
-                self.products_read_collection.find(
-                    {
-                        "$expr": {
-                        "$lt": ["$quantidade", "$estoque_minimo"]
-                        }
-                    },
-                    {
-                        "_id": 0,
-                        "codigo_produto": 1,
-                        "descricao_completa": 1,
-                        "familia_produto": 1,
-                        "unidade": 1,
-                        "quantidade": 1,
-                        "estoque_minimo": 1,
-                        "preco_sintetico": 1,
-                        "produto_inativo": 1,
-                    },
-                ).limit(limit)
-            )
-            
-            logger.info(f"Retrieved {len(products)} low stock products")
-            return products
-        
-        except Exception:
-            logger.exception("Failed to retrieve low stock products")
-            raise
     
     def get_inventory_diff_by_period(
         self,
@@ -449,4 +281,114 @@ class InventoryService:
         
         except Exception:
             logger.exception("Failed to retrieve inventory diffs by period")
+            raise
+        
+    
+    def get_inventory_overview(self) -> dict[str, Any]:
+        """
+        Return a high-level overview of current inventory health.
+        """
+        try:
+            total_products = self.products_read_collection.count_documents({})
+            
+            low_stock = self.products_read_collection.count_documents(
+                {
+                    "$expr": {
+                    "$lt": ["$quantidade", "$estoque_minimo"]
+                    }
+                }
+            )
+            
+            out_of_stock = self.products_read_collection.count_documents(
+                {"quantidade": 0}
+            )
+            
+            negative_stock = self.products_read_collection.count_documents(
+                {"quantidade": {"$lt": 0}}
+            )
+            
+            inactive_products = self.products_read_collection.count_documents(
+                {
+                    "produto_inativo": {
+                    "$regex": "^sim$",
+                    "$options": "i",
+                    }
+                }
+            )
+            
+            summary = {
+                "total_produtos": total_products,
+                "abaixo_estoque_minimo": low_stock,
+                "sem_estoque": out_of_stock,
+                "estoque_negativo": negative_stock,
+                "inativos": inactive_products,
+            }
+            
+            status = "healthy"
+            if negative_stock > 0 or out_of_stock > 0:
+                status = "critical"
+            elif low_stock > 0:
+                status = "attention"
+                
+            return {
+                "summary": summary,
+                "status": status,
+            }
+            
+        except Exception:
+            logger.exception("Failed to generate inventory overview")
+            raise
+    
+    def get_critical_stock_products(
+        self,
+        alert_type: str,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        Return products based on a critical stock condition
+        """
+        try:
+            projection = {
+                "_id": 0,
+                "codigo_produto": 1,
+                "descricao_completa": 1,
+                "familia_produto": 1,
+                "unidade": 1,
+                "quantidade": 1,
+                "estoque_minimo": 1,
+                "preco_sintetico": 1,
+                "produto_inativo": 1,
+            }
+            
+            if alert_type == "low_stock":
+                query = {
+                    "$expr": {
+                    "$lt": ["$quantidade", "$estoque_minimo"]
+                    }
+                }
+            elif alert_type == "out_of_stock":
+                query = {"quantidade": 0}
+            elif alert_type == "negative_stock":
+                query = {"quantidade": {"$lt": 0}}
+            elif alert_type == "near_stockout":
+                query = {
+                    "$expr": {
+                        "$and": [
+                            {"$gt": ["$quantidade", 0]},
+                            {"$lte": ["$quantidade", {"$add": ["$estoque_minimo", 2]}]},
+                        ]
+                    }
+                }
+            else:
+                raise ValueError(f"Invalid alert_type: {alert_type}")
+            
+            products = list(
+                self.products_read_collection.find(query, projection).limit(limit)
+            )
+            
+            logger.info(f"Retrieved {len(products)} critical stock products for alert type: {alert_type}")
+            return products
+        
+        except Exception:
+            logger.exception("Failed to retrieve critical stock products")
             raise

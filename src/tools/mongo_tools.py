@@ -9,7 +9,6 @@ from src.services.inventory import InventoryService
 
 logger = logging.getLogger(__name__)
 
-# Helpers
 def _get_products_collection():
     config = MongoConfig()
     mongo_service = MongoService(config)
@@ -43,9 +42,7 @@ def _get_product_by_code(product_code: str) -> Optional[dict]:
     except Exception:
         logger.exception("Failed to fetch product by code from MongoDB.")
         return None
-    
-    
-# Ferramentas
+
 def search_product_by_name(
     tool_context: ToolContext,
     term: str,
@@ -197,41 +194,6 @@ def get_product_stock_and_price_summary(
         logger.exception("Failed to build stock and price summary from MongoDB.")
         return []
     
-
-def get_low_stock_products(limit: int = 20) -> list[dict]:
-    """
-    Return products whose stock is below the minimum configured value.
-    """
-    try:
-        logger.info("Searching low stock products in MongoDB")
-        
-        collection = _get_products_collection()
-        
-        cursor = collection.find(
-            {
-                "$expr": {
-                    "$lt": ["$quantidade", "$estoque_minimo"]
-                }
-            },
-            {
-                "_id": 0,
-                "codigo_produto": 1,
-                "descricao_completa": 1,
-                "quantidade": 1,
-                "estoque_minimo": 1,
-                "preco_sintetico": 1,
-            },
-        ).limit(limit)
-        
-        records = list(cursor)
-        
-        logger.info(f"Found {len(records)} low stock MongoDB products")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get low stock products from MongoDB.")
-        return []
-    
 def get_inactive_products(limit: int = 20) -> list[dict]:
     """
     Return inactive products for catalog review
@@ -276,10 +238,10 @@ def check_product_availability(
     Check wheter the requested quantity can be fulfilled with current stock
     """
     try:
-        selected_products = tool_context.state.get("selected_products", [])
-        
-        if not product_code and selected_products:
-            product_code = selected_products.get("codigo_produto", "")
+        selected_product = tool_context.state.get("selected_product_last", {})
+
+        if not product_code and selected_product:
+            product_code = selected_product.get("codigo_produto", "")
             
         if not product_code:
             return {
@@ -344,80 +306,6 @@ def check_product_availability(
             "disponivel": False,
             "message": "Failed to check product availability.",
         }
-        
-    
-def get_stock_status_summary() -> dict:
-    """
-    Return a high-level stock status summary from MongoDB.
-    """
-    try:
-        logger.info("Building stock status summary from MongoDB")
-        
-        inventory_service = InventoryService()
-        summary = inventory_service.get_stock_status_summary()
-        
-        logger.info("Stock status summary built successfully")
-        return summary
-    
-    except Exception:
-        logger.exception("Failed to build stock status summary from MongoDB.")
-        return {
-            "total_produtos": 0,
-            "produtos_em_falta": 0,
-            "produtos_estoque_baixo": 0,
-            "produtos_estoque_ok": 0,
-        }
-        
-def get_out_stock_products(limit: int = 20) -> list[dict]:
-    """
-    Return products with zero stock from MongoDB
-    """
-    try:
-        logger.info("Building out-of-stock products list from MongoDB")
-        
-        inventory_service = InventoryService()
-        records = inventory_service.get_out_of_stock_products(limit=limit)
-        
-        logger.info("Out-of-stock products list built successfully")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get out-of-stock products from MongoDB.")
-        return []
-    
-def get_negative_stock_products(limit: int = 20) -> list[dict]:
-    """
-    Return products with negative stock from MongoDB.
-    """
-    try:
-        logger.info("Building negative-stock products list from MongoDB")
-        
-        inventory_service = InventoryService()
-        records = inventory_service.get_negative_stock_products(limit=limit)
-        
-        logger.info("Negative-stock products list built successfully")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get negative-stock products from MongoDB.")
-        return []
-    
-def get_low_stock_products(limit: int = 20) -> list[dict]:
-    """
-    Return products whose stock is below the configured minimum value.
-    """
-    try:
-        logger.info("Searching low stock products in MongoDB")
-        
-        inventory_service = InventoryService()
-        records = inventory_service.get_low_stock_products(limit=limit)
-        
-        logger.info(f"Found {len(records)} low stock MongoDB products")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get low stock products from MongoDB.")
-        return []
     
 def get_inventory_diff_by_period(
     reference_date: str,
@@ -442,4 +330,53 @@ def get_inventory_diff_by_period(
     
     except Exception:
         logger.exception("Failed to get inventory diff by period from MongoDB.")
+        return []
+    
+def get_inventory_overview() -> dict:
+    """
+    Return a high-level overview of current inventory health.
+    """
+    try:
+        logger.info("Building inventory overview from MongoDB")
+
+        inventory_service = InventoryService()
+        overview = inventory_service.get_inventory_overview()
+
+        logger.info("Inventory overview built successfully")
+        return overview
+
+    except Exception:
+        logger.exception("Failed to build inventory overview from MongoDB.")
+        return {
+            "summary": {
+                "total_produtos": 0,
+                "abaixo_estoque_minimo": 0,
+                "sem_estoque": 0,
+                "estoque_negativo": 0,
+                "inativos": 0,
+            },
+            "status": "unknown",
+        }
+        
+def get_critical_stock_products(
+    alert_type: str,
+    limit: int = 20
+) -> list[dict]:
+    """
+    Return products filtered by a critical stock condition.
+    """
+    try:
+        logger.info(f"Building critical stock products list for alert type = {alert_type}")
+        
+        inventory_service = InventoryService()
+        records = inventory_service.get_critical_stock_products(
+            alert_type=alert_type,
+            limit=limit,
+        )
+        
+        logger.info("Critical stock products list built successfully")
+        return records
+    
+    except Exception:
+        logger.exception("Failed to get critical stock products from MongoDB.")
         return []

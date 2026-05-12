@@ -11,12 +11,11 @@ from src.repositories.custom_gemini import CustomGemini
 from src.tools.mongo_tools import (
     check_product_availability,
     get_inactive_products,
-    get_low_stock_products,
     search_product_by_name,
     get_product_by_code,
-    get_negative_stock_products,
-    get_out_stock_products,
-    get_stock_status_summary,
+    get_product_stock_and_price_summary,
+    get_critical_stock_products,
+    get_inventory_overview,
     get_inventory_diff_by_period
 )
 
@@ -37,19 +36,19 @@ def create_inventory_agent() -> LlmAgent:
         description = "An agent specialized in stock availability, inventory monitoring, and stock health analysis.",
         instruction = create_inventory_prompt(),
         tools = [
+            check_product_availability,
+            get_inactive_products,
             search_product_by_name,
             get_product_by_code,
-            check_product_availability,
-            get_low_stock_products,
-            get_inactive_products,
-            get_negative_stock_products,
-            get_out_stock_products,
-            get_stock_status_summary,
+            get_product_stock_and_price_summary,
+            get_critical_stock_products,
+            get_inventory_overview,
             get_inventory_diff_by_period
         ],
         planner = BuiltInPlanner(
             thinking_config = types.ThinkingConfig(
                 include_thoughts = False,
+                thinking_level = "medium"
             ),
         ),
         generate_content_config = types.GenerateContentConfig(
