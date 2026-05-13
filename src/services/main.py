@@ -6,7 +6,6 @@ from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from .payment_service import MercadoPagoService
 from .whatsapp_service import parse_incoming_message, send_message
-from .agent_runner import process_message
 
 load_dotenv()
 

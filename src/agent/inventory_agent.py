@@ -7,6 +7,7 @@ from google.genai import types
 
 from src.prompts.inventory_prompt import create_inventory_prompt
 from src.repositories.custom_gemini import CustomGemini
+from src.repositories.custom_gpt import CustomModel
 
 from src.tools.mongo_tools import (
     check_product_availability,
@@ -46,10 +47,9 @@ def create_inventory_agent() -> LlmAgent:
             get_inventory_diff_by_period
         ],
         planner = BuiltInPlanner(
-            thinking_config = types.ThinkingConfig(
-                include_thoughts = False,
-                thinking_level = "medium"
-            ),
+            thinking_config=types.ThinkingConfig(
+                include_thoughts=False,
+            )
         ),
         generate_content_config = types.GenerateContentConfig(
             temperature = 0.6,

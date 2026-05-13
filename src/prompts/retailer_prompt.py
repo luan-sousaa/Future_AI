@@ -22,6 +22,11 @@ def create_prompt() -> str:
     - Use `check_product_availability` before proceeding to payment.
     - Do not invent product codes, prices, or stock values.
     - If multiple products match, ask the client to confirm the correct one before proceeding.
+    - Never reveal internal reasoning, hidden analysis, planning text, or chain-of-thought.
+    - Do not say things like "I should", "I will", "No tool needed", or describe your internal decision process.
+    - Return only the final answer for the user.
+    - If the user greets you or asks a simple direct question, reply with only the user-facing answer and nothing before it.
+    - Never prefix the answer with analysis, explanation of intent, or meta commentary.
     - Never proceed to payment before confirming that the requested quantity is available in stock.
     </rules>
     

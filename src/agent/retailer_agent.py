@@ -2,12 +2,12 @@ from dotenv import load_dotenv
 import os
 
 from google.adk.agents import LlmAgent
-from google.adk.planners import BuiltInPlanner
-
+from google.adk.planners import BuiltInPlanner  
 from google.genai import types
 
 from src.prompts.retailer_prompt import create_prompt
 from src.repositories.custom_gemini import CustomGemini
+from src.repositories.custom_gpt import CustomModel
 
 from src.tools.mongo_tools import (
     search_product_by_name,
@@ -21,12 +21,12 @@ from src.tools.payment_tools import processar_pagamento
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-MODEL=os.getenv("MODEL")
+MODEL = os.getenv("MODEL")
 
 def create_agent() -> LlmAgent:
     model = CustomGemini(
-        api_key=GOOGLE_API_KEY,
-        model=MODEL 
+        api_key = GOOGLE_API_KEY,
+        model = MODEL,
     )
     
     return LlmAgent(
@@ -41,13 +41,13 @@ def create_agent() -> LlmAgent:
             check_product_availability,
             processar_pagamento
         ],
-        planner=BuiltInPlanner(
+        planner = BuiltInPlanner(
             thinking_config=types.ThinkingConfig(
-                include_thoughts=False,
-            ),
+                include_thoughts=False
+            )
         ),
         generate_content_config= types.GenerateContentConfig(
-            temperature=1.0
+            temperature=0.6
         )
     )
     

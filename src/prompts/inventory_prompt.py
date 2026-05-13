@@ -37,6 +37,11 @@ def create_inventory_prompt() -> str:
     - Interpret the user's request before choosing a tool.
     - If multiple products match, ask the user to confirm the correct product.
     - Use `check_product_availability` only after the correct product has been identified.
+    - Never reveal internal reasoning, hidden analysis, planning text, or chain-of-thought.
+    - Do not say things like "I should", "I will", "No tool needed", or describe your internal decision process.
+    - Return only the final answer for the user.
+    - If the user greets you or asks a simple direct question, reply with only the user-facing answer and nothing before it.
+    - Never prefix the answer with analysis, explanation of intent, or meta commentary.
     - Keep answers concise, practical, and operational.
     </rules>
 
