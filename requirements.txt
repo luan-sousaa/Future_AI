@@ -1,11 +1,17 @@
-google-adk
-google-cloud
-openpyxl
-pandas
-python-multipart
-eval_type_backport
-httpx
-fastapi
-uvicorn
+# Core
 python-dotenv
 pymongo
+bson
+
+# Google
+google-cloud-aiplatform
+google-genai
+google-adk
+
+# OpenAI
+openai
+litellm
+
+# Utils
+python-dateutil
+requests

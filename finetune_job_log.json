@@ -1,0 +1,10 @@
+{
+  "file_id": "file-Dz4Dvw66m5kWZ1GCk2F5y7",
+  "upload_time": "2026-05-18T15:32:20.926622",
+  "job_id": "ftjob-45PyjV9gSfUwZuqka0Pq1MzK",
+  "model": "gpt-3.5-turbo",
+  "status": "validating_files",
+  "creation_time": "2026-05-18T15:32:25.343382",
+  "pipeline_status": "job_created",
+  "final_model": "Aguardando (job: ftjob-45PyjV9gSfUwZuqka0Pq1MzK)"
+}

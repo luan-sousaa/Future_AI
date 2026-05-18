@@ -4,6 +4,7 @@ from typing import Any
 
 from src.config.mongo_config import MongoConfig
 from src.services.mongo_service import MongoService
+from src.config.alert_types import AlertTypeManager
 
 logger = logging.getLogger(__name__)
 
@@ -360,33 +361,32 @@ class InventoryService:
                 "produto_inativo": 1,
             }
             
-            if alert_type == "low_stock":
-                query = {
-                    "$expr": {
-                    "$lt": ["$quantidade", "$estoque_minimo"]
-                    }
-                }
-            elif alert_type == "out_of_stock":
-                query = {"quantidade": 0}
-            elif alert_type == "negative_stock":
-                query = {"quantidade": {"$lt": 0}}
-            elif alert_type == "near_stockout":
-                query = {
-                    "$expr": {
-                        "$and": [
-                            {"$gt": ["$quantidade", 0]},
-                            {"$lte": ["$quantidade", {"$add": ["$estoque_minimo", 2]}]},
-                        ]
-                    }
-                }
-            else:
-                raise ValueError(f"Invalid alert_type: {alert_type}")
-            
-            products = list(
-                self.products_read_collection.find(query, projection).limit(limit)
+            normalized_alert_type = AlertTypeManager.normalize(
+            alert_type
             )
-            
-            logger.info(f"Retrieved {len(products)} critical stock products for alert type: {alert_type}")
+
+            if not AlertTypeManager.is_valid(
+                normalized_alert_type
+            ):
+                raise ValueError(
+                    f"Invalid alert_type: {alert_type}"
+                )
+
+            query = AlertTypeManager.get_mongodb_query(
+                normalized_alert_type
+            )
+
+            products = list(
+                self.products_read_collection.find(
+                    query,
+                    projection,
+                ).limit(limit)
+            )
+
+            logger.info(
+                f"Retrieved {len(products)} products for alert type: {normalized_alert_type}"
+            )
+
             return products
         
         except Exception:
