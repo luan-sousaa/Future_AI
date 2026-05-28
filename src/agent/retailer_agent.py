@@ -1,58 +1,58 @@
-from dotenv import load_dotenv
-import os
-
 from google.adk.agents import LlmAgent
-from google.adk.planners import BuiltInPlanner  
 from google.genai import types
 
 from src.prompts.retailer_prompt import create_prompt
-from src.repositories.custom_gemini import CustomGemini
-from src.repositories.custom_gpt import CustomModel
+
+from src.factories.model_factory import create_model
+from src.factories.planner_factory import create_planner
+
+from src.callbacks.sanitize_callback import (
+    hide_reasoning_callback,
+)
 
 from src.tools.mongo_tools import (
     search_product_by_name,
     get_product_by_code,
     get_product_stock_and_price_summary,
-    check_product_availability
+    check_product_availability,
 )
 
 from src.tools.payment_tools import processar_pagamento
 
-from src.observability.phoenix import setup_phoenix
-
-setup_phoenix()
-
-load_dotenv()
-
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-MODEL = os.getenv("MODEL")
+from src.bootstrap import bootstrap_app
 
 def create_agent() -> LlmAgent:
-    model = CustomGemini(
-        api_key = GOOGLE_API_KEY,
-        model = MODEL,
-    )
-    
     return LlmAgent(
-        name = "retailer_agent",
-        model=model,
-        description="An agent that helps retailers optimize their inventory management and sales strategies.",
+        name="retailer_agent",
+
+        model=create_model(),
+
+        planner=create_planner(),
+
+        description=(
+            "Retail sales agent specialized in product discovery, "
+            "stock validation, and payment flow."
+        ),
+
         instruction=create_prompt(),
-        tools = [
+
+        tools=[
             search_product_by_name,
             get_product_by_code,
             get_product_stock_and_price_summary,
             check_product_availability,
-            processar_pagamento
+            processar_pagamento,
         ],
-        planner = BuiltInPlanner(
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=False
-            )
+
+        generate_content_config=types.GenerateContentConfig(
+            temperature=0.2,
         ),
-        generate_content_config= types.GenerateContentConfig(
-            temperature=0.6
-        )
+
+        after_model_callback=[
+            hide_reasoning_callback,
+        ],
     )
     
- 
+
+bootstrap_app(project_name="retailer_agent")
+root_agent = create_agent()

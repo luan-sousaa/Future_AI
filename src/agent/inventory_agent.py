@@ -25,9 +25,7 @@ from src.tools.mongo_tools import (
     get_inventory_diff_by_period,
 )
 
-from src.observability.phoenix import setup_phoenix
-
-setup_phoenix()
+from src.bootstrap import bootstrap_app
 
 def create_inventory_agent() -> LlmAgent:
     return LlmAgent(
@@ -67,4 +65,5 @@ def create_inventory_agent() -> LlmAgent:
     )
 
 
+bootstrap_app(project_name="inventory_agent")
 root_agent = create_inventory_agent()

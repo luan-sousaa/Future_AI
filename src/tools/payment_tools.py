@@ -38,9 +38,16 @@ def processar_pagamento(
     """
     try:
         selected_product = tool_context.state.get("selected_product", {})
+        last_stock_check = tool_context.state.get("last_stock_check", {})
         
         if not product_code and selected_product:
             product_code = selected_product.get("codigo_produto", "")
+
+        if not product_code and last_stock_check:
+            product_code = last_stock_check.get("codigo_produto", "")
+
+        if not product_code:
+            product_code = tool_context.state.get("selected_product_last", "")
         
         if not product_name and selected_product:
             product_name = selected_product.get("descricao_completa", "")

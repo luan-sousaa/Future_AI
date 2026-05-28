@@ -14,3 +14,18 @@ litellm
 # Utils
 python-dateutil
 requests
+
+# API / HTTP
+fastapi
+httpx
+tenacity
+pydantic
+email-validator
+
+# Data
+pandas
+openpyxl
+
+# Agent Observability
+arize-phoenix-otel
+openinference-instrumentation-google-adk

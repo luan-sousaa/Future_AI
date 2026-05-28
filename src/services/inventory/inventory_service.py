@@ -275,8 +275,17 @@ class InventoryService:
         product_code: str,
     ) -> dict[str, Any] | None:
         try:
+            code_variants: list[Any] = [product_code]
+
+            if isinstance(product_code, str) and product_code.isdigit():
+                code_variants.append(int(product_code))
+
             return self.products_read_collection.find_one(
-                {"codigo_produto": product_code},
+                {
+                    "codigo_produto": {
+                        "$in": code_variants
+                    }
+                },
                 self._build_product_projection(),
             )
 
@@ -329,11 +338,22 @@ class InventoryService:
             if not product_codes:
                 return []
 
+            code_variants: list[Any] = []
+
+            for product_code in product_codes:
+                code_variants.append(product_code)
+
+                if (
+                    isinstance(product_code, str)
+                    and product_code.isdigit()
+                ):
+                    code_variants.append(int(product_code))
+
             products = list(
                 self.products_read_collection.find(
                     {
                         "codigo_produto": {
-                            "$in": product_codes
+                            "$in": code_variants
                         }
                     },
                     self._build_product_projection(),
