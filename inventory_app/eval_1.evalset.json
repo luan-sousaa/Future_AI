@@ -1,0 +1,38 @@
+{
+  "eval_set_id": "eval_1",
+  "name": "eval_1",
+  "eval_cases": [
+    {
+      "eval_id": "Ol",
+      "conversation": [
+        {
+          "invocation_id": "e-6e0e1ced-0fa6-4fc2-b224-587c8fbd5958",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Olá"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Olá! Como posso ajudar você hoje com operações de estoque e inventário?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1779133647.6988647
+        }
+      ],
+      "session_input": {
+        "app_name": "inventory_app",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1779133656.5295522
+    }
+  ],
+  "creation_timestamp": 1779133641.3215497
+}

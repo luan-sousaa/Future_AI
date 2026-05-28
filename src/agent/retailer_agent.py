@@ -18,6 +18,10 @@ from src.tools.mongo_tools import (
 
 from src.tools.payment_tools import processar_pagamento
 
+from src.observability.phoenix import setup_phoenix
+
+setup_phoenix()
+
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")

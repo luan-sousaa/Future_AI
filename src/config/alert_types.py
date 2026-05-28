@@ -215,6 +215,19 @@ ALERT_TYPES: Dict[str, Dict] = {
 # Lista de tipos válidos (para validação rápida)
 VALID_ALERT_TYPES: List[str] = list(ALERT_TYPES.keys())
 
+ALERT_TYPE_ALIASES = {
+    "rupture": "rupture_risk",
+    "ruptura": "rupture_risk",
+    "sem estoque": "out_of_stock",
+    "zerado": "zero_stock",
+    "estoque zerado": "zero_stock",
+    "baixo estoque": "low_stock",
+    "estoque baixo": "low_stock",
+    "estoque negativo": "negative_stock",
+    "produto parado": "low_movement",
+    "alto giro": "high_movement",
+}
+
 ALERTS_BY_SEVERITY = {
     "CRITICO": [k for k, v in ALERT_TYPES.items() if v["severity"] == "CRITICO"],
     "ALTO": [k for k, v in ALERT_TYPES.items() if v["severity"] == "ALTO"],
@@ -236,7 +249,12 @@ class AlertTypeManager:
         if isinstance(alert_type, Enum):
             return alert_type.value
 
-        return str(alert_type).strip().lower()
+        normalized = str(alert_type).strip().lower()
+
+        return ALERT_TYPE_ALIASES.get(
+            normalized,
+            normalized
+        )
 
     @staticmethod
     def is_valid(alert_type: str) -> bool:

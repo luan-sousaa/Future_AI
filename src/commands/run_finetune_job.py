@@ -6,7 +6,7 @@ import logging
 import sys
 import os
 from dotenv import load_dotenv
-from src.services.finetune_openai import InventoryFineTuneJob
+from src.services.fine_tuning.finetune_openai import InventoryFineTuneJob
 
 load_dotenv()
 logging.basicConfig(
@@ -38,8 +38,8 @@ def main():
 
         # Executa pipeline
         result = job.run_full_pipeline(
-            dataset_file="inventory_finetune_dataset.jsonl",
-            model="gpt-3.5-turbo",
+            dataset_file="inventory_dataset.jsonl",
+            model="gpt-4.1-mini",
             n_epochs=3,
             wait_for_completion=False  # ← Não espera (leva 1-2 horas)
         )

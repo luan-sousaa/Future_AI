@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from src.services.mongo_service import MongoService
+from src.services.mongo.mongo_service import MongoService
 from src.config.mongo_config import MongoConfig
 
 logger = logging.getLogger(__name__)

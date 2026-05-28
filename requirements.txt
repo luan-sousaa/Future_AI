@@ -1,7 +1,6 @@
 # Core
 python-dotenv
 pymongo
-bson
 
 # Google
 google-cloud-aiplatform

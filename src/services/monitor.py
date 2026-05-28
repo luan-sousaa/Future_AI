@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime
 
-from src.services.inventory import InventoryService
-from src.services.inventory_alert import InventoryAlertService
-from src.services.email_service import EmailNotificationService
+from src.services.inventory.inventory_service import InventoryService
+from src.services.inventory.inventory_alert_service import InventoryAlertService
+from src.services.email.email_service import EmailNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def run_inventory_monitor() -> dict:
             
         report = alert_service.build_inventory_alert_report()
         
-        if not report.get("has_alert", False):
+        if not report.get("has_critical_alerts", False):
             logger.info("No inventory alerts for this cycle.")
             return {
                 "snapshot_date": snapshot_date,

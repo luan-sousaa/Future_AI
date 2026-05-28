@@ -1,10 +1,6 @@
 import logging
 import uuid
 
-from src.services.payment_record import PaymentRecordService
-from src.services.sales_record import SalesHistoryService
-from src.services.inventory import InventoryService
-
 from google.adk.tools import ToolContext
 
 logger = logging.getLogger(__name__)
@@ -64,6 +60,8 @@ def processar_pagamento(
         }
         
         # Salvar registro de pagamento
+        from src.services.payment.payment_record import PaymentRecordService
+
         payment_record = PaymentRecordService()
         payment_record.save_payment_record(
             source="mock",
@@ -77,6 +75,10 @@ def processar_pagamento(
         # Salvar registro de venda
         # venda só é armazenada no DB se for aprovada após o pagamento
         if resultado.get("status") == "approved" and product_code and product_name:
+            from src.services.inventory.inventory_service import InventoryService
+
+            from src.services.sales.sales_record import SalesHistoryService
+
             sales_record = SalesHistoryService()
             inventory_service = InventoryService()
             

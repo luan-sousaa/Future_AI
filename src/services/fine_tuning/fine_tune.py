@@ -9,7 +9,7 @@ from pymongo.errors import DuplicateKeyError
 from bson import ObjectId
 
 from src.config.mongo_config import MongoConfig
-from src.services.mongo_service import MongoService
+from src.services.mongo.mongo_service import MongoService
 
 logger = logging.getLogger(__name__)
 

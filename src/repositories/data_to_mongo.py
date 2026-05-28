@@ -5,7 +5,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from src.config.mongo_config import MongoConfig
-from src.services.mongo_service import MongoService
+from src.services.mongo.mongo_service import MongoService
 from src.tools.db_tools_excel import load_excel_data
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from typing import Optional
 from openai import OpenAI
-from src.services.fine_tune import InventoryFineTuneService
+from src.services.fine_tuning.fine_tune import InventoryFineTuneService
 
 logger = logging.getLogger(__name__)
 

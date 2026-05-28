@@ -1,382 +1,335 @@
 import logging
-from typing import Optional 
+from datetime import datetime
+from typing import Any
 
 from google.adk.tools import ToolContext
 
-from src.config.mongo_config import MongoConfig
-from src.services.mongo_service import MongoService
-from src.services.inventory import InventoryService
+from src.config.alerts.alert_enums import AlertTypeEnum
+
+from src.services.inventory.inventory_types import InventoryOverviewResponse
 
 logger = logging.getLogger(__name__)
 
-def _get_products_collection():
-    config = MongoConfig()
-    mongo_service = MongoService(config)
-    return mongo_service.get_products_collection(read_only=True)
+_inventory_service = None
 
-def _get_product_by_code(product_code: str) -> Optional[dict]:
-    """
-    Fetch one exact product by code 
-    """
-    try:
-        logger.info(f"Fetching product by code: {product_code}")
-        
-        if not product_code or not product_code.strip():
-            logger.warning("Empty product code.")
-            return None
-        
-        collection = _get_products_collection()
-        
-        produto = collection.find_one(
-            {"codigo_produto": product_code},
-            {"_id": 0}
-        )
-        
-        if not produto:
-            logger.warning(f"No product found with code: {product_code}")
-            return None
-        
-        logger.info(f"Product found: {produto['descricao_completa']}")
-        return produto 
-    
-    except Exception:
-        logger.exception("Failed to fetch product by code from MongoDB.")
-        return None
+
+def _get_inventory_service():
+    global _inventory_service
+
+    if _inventory_service is None:
+        from src.services.inventory.inventory_service import InventoryService
+
+        _inventory_service = InventoryService()
+
+    return _inventory_service
 
 def search_product_by_name(
     tool_context: ToolContext,
     term: str,
     limit: int = 10,
-) -> list[dict]:
-    """
-    Search products by name or description in MongoDB and store the last search results in session state.
-    """
+    skip: int = 0,
+) -> list[dict[str, Any]]:
+
     try:
-        logger.info(f"Searching products with term: {term}")
-        
-        if not term or not term.strip():
-            logger.warning("Empty search term")
+        if not term.strip():
             return []
-        
-        collection = _get_products_collection()
-        
-        cursor = collection.find(
-            {
-                "descricao_completa": {
-                    "$regex": term,
-                    "$options": "i",
-                }
-            },
-            {
-                "_id": 0,
-                "codigo_produto": 1,
-                "descricao_completa": 1,
-                "familia_produto": 1,
-                "unidade": 1,
-                "preco_sintetico": 1,
-            },
-        ).limit(limit)
-        
-        full_records = list(cursor)
-        client_records = [
-            {
-                "descricao_completa": item["descricao_completa"],
-                "familia_produto": item.get("familia_produto"),
-                "unidade": item.get("unidade"),
-                "preco_sintetico": item.get("preco_sintetico"),
-            }
-            for item in full_records
+
+        products = (
+            _get_inventory_service().search_products_by_name(
+                term=term,
+                limit=limit,
+                skip=skip,
+            )
+        )
+
+        tool_context.state[
+            "last_search_term"
+        ] = term
+
+        tool_context.state[
+            "last_search_product_codes"
+        ] = [
+            product["codigo_produto"]
+            for product in products
         ]
-        
-        tool_context.state["last_search_term"] = term
-        tool_context.state["last_search_results"] = full_records
-        
-        logger.info(f"Found {len(full_records)} matching MongoDB products")
-        return client_records
-    
+
+        return [
+            {
+                "codigo_produto": p[
+                    "codigo_produto"
+                ],
+                "descricao_completa": p[
+                    "descricao_completa"
+                ],
+                "familia_produto": p.get(
+                    "familia_produto"
+                ),
+                "unidade": p.get("unidade"),
+                "preco_sintetico": p.get(
+                    "preco_sintetico"
+                ),
+            }
+            for p in products
+        ]
+
     except Exception:
-        logger.exception("Failed to search products by name in MongoDB")
+        logger.exception(
+            "Failed to search products"
+        )
         return []
-    
+
+
 def get_product_by_code(
     tool_context: ToolContext,
     product_code: str,
-) -> Optional[dict]:
-    """
-    Select one product by exact code and store it in session state
-    """
+) -> dict[str, Any] | None:
+
     try:
-        logger.info(f"Selecting product by code from MongoDB: {product_code}")
-        
-        produto = _get_product_by_code(product_code)
-        if produto is None:
+        product = (
+            _get_inventory_service().get_product_by_code(
+                product_code
+            )
+        )
+
+        if not product:
             return None
-    
-        selected_codes = tool_context.state.get("selected_product_codes", [])
-        selected_products = tool_context.state.get("selected_products", [])
-        
-        if produto["codigo_produto"] not in selected_codes:
-            selected_codes.append(produto["codigo_produto"])
-            selected_products.append(produto)
-            logger.info(f"Product code {product_code} added to current selection")
-        else:
-            logger.info(f"Product code {product_code} already exists in current selection")
-            
-            
-        tool_context.state["selected_product_codes"] = selected_codes
-        tool_context.state["selected_products"] = selected_products
-        tool_context.state["selected_product_last"] = produto
-        
-        client_result = {
-            "descricao_completa": produto["descricao_completa"],
-            "familia_produto": produto.get("familia_produto"),
-            "unidade": produto.get("unidade"),
+
+        selected_codes = tool_context.state.get(
+            "selected_product_codes",
+            [],
+        )
+
+        if (
+            product_code
+            not in selected_codes
+        ):
+            selected_codes.append(
+                product_code
+            )
+
+        tool_context.state[
+            "selected_product_codes"
+        ] = selected_codes
+
+        tool_context.state[
+            "selected_product_last"
+        ] = product_code
+
+        return {
+            "codigo_produto": product[
+                "codigo_produto"
+            ],
+            "descricao_completa": product[
+                "descricao_completa"
+            ],
+            "familia_produto": product.get(
+                "familia_produto"
+            ),
+            "unidade": product.get(
+                "unidade"
+            ),
         }
 
-        logger.info(f"Total selected products: {len(selected_products)}")
-        return client_result
-
     except Exception:
-        logger.exception("Failed to select product by code from MongoDB")
+        logger.exception(
+            "Failed to get product"
+        )
         return None
-    
+
+
 def get_product_stock_and_price_summary(
     tool_context: ToolContext,
-) -> list[dict]:
-    """
-    Return stock and price summaries for the currently selected MongoDB products.
-    """
+) -> list[dict[str, Any]]:
+
     try:
-        logger.info("Building stock and price summary for MongoDB products")
-        
-        selected_codes = tool_context.state.get("selected_product_codes", [])
-        
+        selected_codes = tool_context.state.get(
+            "selected_product_codes",
+            [],
+        )
+
         if not selected_codes:
-            logger.warning("No selected product codes found in session state")
             return []
-        
-        full_summaries: list[dict] = []
-        client_summaries: list[dict] = []
-        
-        for code in selected_codes:
-            produto = _get_product_by_code(code)
-            if produto is None:
-                logger.warning(f"Skipping missing product code during summary: {code}")
-                continue            
-            
-            full_summary = {
-                "codigo_produto": produto["codigo_produto"],
-                "descricao_completa": produto["descricao_completa"],
-                "familia_produto": produto.get("familia_produto"),
-                "unidade": produto.get("unidade"),
-                "produto_inativo": produto.get("produto_inativo"),
-                "quantidade_em_estoque": produto.get("quantidade"),
-                "estoque_minimo": produto.get("estoque_minimo"),
-                "preco_sintetico": produto.get("preco_sintetico"),
-            }
-            
-            client_summary = {
-                "descricao_completa": produto["descricao_completa"],
-                "familia_produto": produto.get("familia_produto"),
-                "unidade": produto.get("unidade"),
-                "preco_sintetico": produto.get("preco_sintetico"),
-            }
-            
-            full_summaries.append(full_summary)
-            client_summaries.append(client_summary)
-        
-        tool_context.state["last_products_summary"] = full_summaries
-        
-        logger.info(f"Built summaries for {len(client_summaries)} MongoDB products")
-        return client_summaries
-    
-    except Exception:
-        logger.exception("Failed to build stock and price summary from MongoDB.")
-        return []
-    
-def get_inactive_products(limit: int = 20) -> list[dict]:
-    """
-    Return inactive products for catalog review
-    """
-    try:
-        logger.info("Searching inactive products in MongoDB")
-        
-        collection = _get_products_collection()
-        
-        cursor = collection.find(
+
+        products = (
+            _get_inventory_service().get_products_by_codes(
+                selected_codes
+            )
+        )
+
+        return [
             {
-                "produto_inativo": {
-                    "$regex": "^sim$",
-                    "$options": "i",
-                }
-            },
-            {
-                "_id": 0,
-                "codigo_produto": 1,
-                "descricao_completa": 1,
-                "familia_produto": 1,
-                "unidade": 1,
-                "preco_sintetico": 1,
-            },
-        ).limit(limit)
-        
-        records = list(cursor)
-        
-        logger.info(f"Found {len(records)} inactive MongoDB products")
-        return records
-    
+                "codigo_produto": p[
+                    "codigo_produto"
+                ],
+                "descricao_completa": p[
+                    "descricao_completa"
+                ],
+                "familia_produto": p.get(
+                    "familia_produto"
+                ),
+                "unidade": p.get("unidade"),
+                "quantidade": p.get(
+                    "quantidade"
+                ),
+                "estoque_minimo": p.get(
+                    "estoque_minimo"
+                ),
+                "preco_sintetico": p.get(
+                    "preco_sintetico"
+                ),
+            }
+            for p in products
+        ]
+
     except Exception:
-        logger.exception("Failed to get inactive products from MongoDB.")
+        logger.exception(
+            "Failed to build summary"
+        )
         return []
-    
+
+
 def check_product_availability(
     tool_context: ToolContext,
     product_code: str,
     requested_quantity: int,
-) -> dict:
-    """
-    Check wheter the requested quantity can be fulfilled with current stock
-    """
-    try:
-        selected_product = tool_context.state.get("selected_product_last", {})
+) -> dict[str, Any]:
 
-        if not product_code and selected_product:
-            product_code = selected_product.get("codigo_produto", "")
-            
+    try:
+        if not product_code:
+            product_code = tool_context.state.get(
+                "selected_product_last",
+                "",
+            )
+
         if not product_code:
             return {
                 "disponivel": False,
-                "message": "No product is currently selected for stock validation"
+                "message": (
+                    "No product selected."
+                ),
             }
-        
-        logger.info(f"Checking product availability for code = {product_code} | quantity = {requested_quantity}")
-        
-        inventory_service = InventoryService()
-        stock_info = inventory_service.get_current_stock_by_product_code(product_code)
-        
-        if stock_info is None:
-            result = {
-                "codigo_produto": product_code,
-                "disponivel": False,
-                "message": "Product not found in stock database.",
-            }
-            tool_context.state["last_stock_check"] = {
-                "product_code": product_code,
-                "requested_quantity": requested_quantity,
-                "stock_info": None,
-                "result": result,
-            }
-            return result
-            
-        available_quantity = stock_info["quantidade"]
-        is_available = available_quantity >= requested_quantity
-        
-        full_result = {
-            "codigo_produto": stock_info["codigo_produto"],
-            "descricao_completa": stock_info["descricao_completa"],
-            "quantidade_solicitada": requested_quantity,
-            "quantidade_disponivel": available_quantity,
-            "estoque_minimo": stock_info["estoque_minimo"],
-            "produto_inativo": stock_info["produto_inativo"],
-            "disponivel": is_available,
-            "em_estoque": stock_info["em_estoque"],
+
+        result = (
+            _get_inventory_service().validate_stock_availability(
+                product_code,
+                requested_quantity,
+            )
+        )
+
+        tool_context.state[
+            "last_stock_check"
+        ] = result
+
+        return result
+
+    except ValueError as exc:
+        return {
+            "disponivel": False,
+            "message": str(exc),
         }
-        
-        client_result = {
-            "disponivel": is_available,
+
+    except Exception:
+        logger.exception(
+            "Failed to validate stock"
+        )
+
+        return {
+            "disponivel": False,
             "message": (
-                "Requested quantity is available."
-                if is_available
-                else "Requested quantity is higher than current stock."
+                "Failed to validate stock."
             ),
         }
-        
-        tool_context.state["last_stock_check"] = {
-            "full_result": full_result,
-            "client_result": client_result,
-        }
-        logger.info(f"Stock check completed for code = {product_code} | available = {is_available}")
-        
-        return client_result
-    
+
+
+def get_inventory_overview() -> InventoryOverviewResponse:
+
+    try:
+        return (
+            _get_inventory_service().get_inventory_overview()
+        )
+
     except Exception:
-        logger.exception("Failed to check product availability")
+        logger.exception(
+            "Failed to get inventory overview"
+        )
+
         return {
-            "codigo_produto": product_code,
-            "disponivel": False,
-            "message": "Failed to check product availability.",
-        }
-    
-def get_inventory_diff_by_period(
-    reference_date: str,
-    reference_period: str,
+        "summary": {
+            "total_produtos": 0,
+            "abaixo_estoque_minimo": 0,
+            "sem_estoque": 0,
+            "estoque_negativo": 0,
+            "inativos": 0,
+        },
+        "status": "unknown",
+    }
+
+
+def get_critical_stock_products(
+    alert_type: AlertTypeEnum,
     limit: int = 20,
 ) -> list[dict]:
-    """
-    Return inventory diff records for a specific date and period
-    """
+
     try:
-        logger.info(f"Building inventory diff by period for date = {reference_date} | period = {reference_period}")
-        
-        inventory_service = InventoryService()
-        records = inventory_service.get_inventory_diff_by_period(
+        return (
+            _get_inventory_service().get_critical_stock_products(
+                alert_type=alert_type,
+                limit=limit,
+            )
+        )
+
+    except Exception:
+        logger.exception(
+            "Failed to get critical products"
+        )
+
+        return []
+    
+def get_inactive_products(
+    limit: int = 20,
+) -> list[dict]:
+
+    try:
+        logger.info(
+            "Building inactive products list"
+        )
+
+        return _get_inventory_service().get_inactive_products(
+            limit=limit
+        )
+
+    except Exception:
+        logger.exception(
+            "Failed to get inactive products"
+        )
+
+        return []
+    
+def get_inventory_diff_by_period(
+    reference_period: str,
+    reference_date: str = "",
+    limit: int = 20,
+) -> list[dict]:
+
+    try:
+        if not reference_date:
+            reference_date = datetime.now().date().isoformat()
+
+        logger.info(
+            "Building inventory diff by period | "
+            f"date={reference_date} | "
+            f"period={reference_period}"
+        )
+
+        return _get_inventory_service().get_inventory_diff_by_period(
             reference_date=reference_date,
             reference_period=reference_period,
             limit=limit,
         )
-        
-        logger.info("Inventory diff by period built successfully")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get inventory diff by period from MongoDB.")
-        return []
-    
-def get_inventory_overview() -> dict:
-    """
-    Return a high-level overview of current inventory health.
-    """
-    try:
-        logger.info("Building inventory overview from MongoDB")
-
-        inventory_service = InventoryService()
-        overview = inventory_service.get_inventory_overview()
-
-        logger.info("Inventory overview built successfully")
-        return overview
 
     except Exception:
-        logger.exception("Failed to build inventory overview from MongoDB.")
-        return {
-            "summary": {
-                "total_produtos": 0,
-                "abaixo_estoque_minimo": 0,
-                "sem_estoque": 0,
-                "estoque_negativo": 0,
-                "inativos": 0,
-            },
-            "status": "unknown",
-        }
-        
-def get_critical_stock_products(
-    alert_type: str,
-    limit: int = 20
-) -> list[dict]:
-    """
-    Return products filtered by a critical stock condition.
-    """
-    try:
-        logger.info(f"Building critical stock products list for alert type = {alert_type}")
-        
-        inventory_service = InventoryService()
-        records = inventory_service.get_critical_stock_products(
-            alert_type=alert_type,
-            limit=limit,
+        logger.exception(
+            "Failed to get inventory diff by period"
         )
-        
-        logger.info("Critical stock products list built successfully")
-        return records
-    
-    except Exception:
-        logger.exception("Failed to get critical stock products from MongoDB.")
+
         return []

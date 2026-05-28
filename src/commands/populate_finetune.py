@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
 
-from src.services.fine_tune import InventoryFineTuneService
+from src.services.fine_tuning.fine_tune import InventoryFineTuneService
 from src.repositories.inventory_finetune_examples import (
     INVENTORY_FINETUNE_EXAMPLES,
     RECOMMENDED_QUANTITIES,

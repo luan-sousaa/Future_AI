@@ -1,4 +1,4 @@
-from src.services.payment_tool import PaymentTool
+from src.services.payment.payment_tool import PaymentTool
 
 async def gerar_pagamento(valor: float, email: str, nome: str, sobrenome: str):
     tool = PaymentTool("SEU_ACCESS_TOKEN")

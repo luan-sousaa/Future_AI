@@ -1,17 +1,17 @@
 from typing import Optional
 
 from google.adk.runners import Runner   
-from google.adk.sessions import InMemorySessionsService
+from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from .agent import root_agent
-from src.services.runner_utils import extract_user_visible_text
+from src.utils.runner_utils import extract_user_visible_text
 
 APP_NAME = "inventory_app"
 
-_session_service = InMemorySessionsService()
-_runner = Optional[Runner] = None
-_sessions = dict[str, str] = {}
+_session_service = InMemorySessionService()
+_runner: Optional[Runner] = None
+_sessions: dict[str, str] = {}
 
 def get_runner() -> Runner:
     global _runner

@@ -5,7 +5,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from .payment_service import MercadoPagoService
-from .whatsapp_service import parse_incoming_message, send_message
+from ..whatsapp.whatsapp_service import parse_incoming_message, send_message
 
 load_dotenv()
 

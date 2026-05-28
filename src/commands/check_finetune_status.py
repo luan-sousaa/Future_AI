@@ -6,7 +6,7 @@ import sys
 import os
 import logging
 from dotenv import load_dotenv
-from src.services.finetune_openai import InventoryFineTuneJob
+from src.services.fine_tuning.finetune_openai import InventoryFineTuneJob
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
