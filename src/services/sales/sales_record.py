@@ -40,11 +40,11 @@ class SalesHistoryService:
             Saved document in MongoDB
         """
         try:
-            sale_data = datetime.now(timezone.utc).date()
+            sale_date = datetime.now(timezone.utc)
             
             document = {
                 "sale_id": str(uuid.uuid4()),
-                "date": sale_data,
+                "date": sale_date,
                 "product_name": product_name,
                 "quantity": quantity,
                 "unit_price": unit_price,
