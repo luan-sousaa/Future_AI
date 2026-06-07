@@ -6,7 +6,11 @@ import pandas as pd
 
 from google.adk.tools import ToolContext
 
-EXCEL_PATH = Path(__file__).resolve().parent.parent / "repositories" / "pivot-5_com_precos.xlsx"
+EXCEL_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "repositories"
+    / "historico_vendas_semanal_36m (2).xlsx"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +28,6 @@ COLUNAS = [
 
 # HELPERS
 def load_excel_data() -> Optional[pd.DataFrame]:
-    """
-    Load and normalize the Excel inventory table for reuse by the other tools.
-    """
     try:
         logger.info(f"Loading excel file from {EXCEL_PATH}")
 
@@ -36,25 +37,60 @@ def load_excel_data() -> Optional[pd.DataFrame]:
 
         df = pd.read_excel(
             EXCEL_PATH,
-            sheet_name="Sheet1",
-            skiprows=4,
-            header=None,
-            names=COLUNAS,
+            sheet_name="Produtos",
             engine="openpyxl",
         )
 
         df = df.dropna(how="all")
 
-        df["descricao_completa"] = df["descricao_completa"].astype(str).str.strip()
-        df["familia_produto"] = df["familia_produto"].astype(str).str.strip()
-        df["codigo_produto"] = df["codigo_produto"].astype(str).str.strip()
-        df["codigo_ean_gtin"] = df["codigo_ean_gtin"].astype(str).str.strip()
-        df["produto_inativo"] = df["produto_inativo"].astype(str).str.strip()
-        df["unidade"] = df["unidade"].astype(str).str.strip()
+        df = df.rename(
+            columns={
+                "CodProduto": "codigo_produto",
+                "Descricao": "descricao_completa",
+                "Familia": "familia_produto",
+                "EAN": "codigo_ean_gtin",
+                "Unidade": "unidade",
+                "Inativo": "produto_inativo",
+                "Preco": "preco_sintetico",
+                "EstoqueAtual": "quantidade",
+                "EstoqueMin": "estoque_minimo",
+                "CoberturaMeses": "cobertura_meses",
+                "Perfil": "perfil_venda",
+                "StatusEstoque": "status_estoque",
+                "VendaUlt13s": "venda_ult_13s",
+                "VendaUlt52s": "venda_ult_52s",
+                "MediaSemanal13": "media_semanal_13",
+                "SemanasComVenda13": "semanas_com_venda_13",
+            }
+        )
 
-        df["quantidade"] = pd.to_numeric(df["quantidade"], errors="coerce")
-        df["estoque_minimo"] = pd.to_numeric(df["estoque_minimo"], errors="coerce")
-        df["preco_sintetico"] = pd.to_numeric(df["preco_sintetico"], errors="coerce")
+        text_columns = [
+            "codigo_produto",
+            "descricao_completa",
+            "familia_produto",
+            "codigo_ean_gtin",
+            "unidade",
+            "produto_inativo",
+            "perfil_venda",
+            "status_estoque",
+        ]
+
+        for column in text_columns:
+            df[column] = df[column].astype(str).str.strip()
+
+        numeric_columns = [
+            "preco_sintetico",
+            "quantidade",
+            "estoque_minimo",
+            "cobertura_meses",
+            "venda_ult_13s",
+            "venda_ult_52s",
+            "media_semanal_13",
+            "semanas_com_venda_13",
+        ]
+
+        for column in numeric_columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
 
         logger.info(f"Excel loaded successfully with {len(df)} rows.")
         return df

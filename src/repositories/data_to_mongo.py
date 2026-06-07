@@ -1,5 +1,4 @@
 import logging
-import os
  
 import pandas as pd  
 from dotenv import load_dotenv
@@ -18,9 +17,18 @@ def import_products_to_mongo() -> None:
     
     config = MongoConfig()
     mongo_service =MongoService(config)
-    collection = mongo_service.get_products_collection()
+    collection = mongo_service.get_products_collection(read_only=False)
     
+    # Use isso somente se quiser limpar a collection antes:
+    collection.delete_many({})
     collection.create_index("codigo_produto", unique=True)
+    collection.create_index("codigo_ean_gtin")
+    collection.create_index("familia_produto")
+    collection.create_index("status_estoque")
+    collection.create_index("perfil_venda")
+    collection.create_index("venda_ult_13s")
+    collection.create_index("media_semanal_13")
+    collection.create_index("cobertura_meses")
     
     inserted_count = 0
     updated_count = 0

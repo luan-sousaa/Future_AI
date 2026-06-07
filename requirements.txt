@@ -21,6 +21,7 @@ httpx
 tenacity
 pydantic
 email-validator
+streamlit
 
 # Data
 pandas

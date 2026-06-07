@@ -25,6 +25,21 @@ def _get_inventory_service():
 
     return _inventory_service
 
+def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "codigo_produto": product.get("codigo_produto"),
+        "descricao_completa": product.get("descricao_completa"),
+        "familia_produto": product.get("familia_produto"),
+        "unidade": product.get("unidade"),
+        "preco_sintetico": product.get("preco_sintetico"),
+        "quantidade": product.get("quantidade"),
+        "estoque_minimo": product.get("estoque_minimo"),
+        "status_estoque": product.get("status_estoque"),
+        "perfil_venda": product.get("perfil_venda"),
+        "venda_ult_13s": product.get("venda_ult_13s"),
+        "media_semanal_13": product.get("media_semanal_13"),
+        "cobertura_meses": product.get("cobertura_meses"),
+    }
 
 def search_product_by_name(
     tool_context: ToolContext,
@@ -63,14 +78,8 @@ def search_product_by_name(
         ]
 
         search_results = [
-            {
-                "codigo_produto": p["codigo_produto"],
-                "descricao_completa": p["descricao_completa"],
-                "familia_produto": p.get("familia_produto"),
-                "unidade": p.get("unidade"),
-                "preco_sintetico": p.get("preco_sintetico"),
-            }
-            for p in products
+            _compact_product(product)
+            for product in products
         ]
 
         tool_context.state["last_search_products"] = search_results
@@ -158,7 +167,7 @@ def get_product_by_code(
 def get_product_stock_and_price_summary(
     tool_context: ToolContext,
 ) -> list[dict[str, Any]]:
-
+    
     logger.info("Building stock and price summary")
 
     try:
@@ -442,4 +451,115 @@ def get_inventory_diff_by_period(
             f"reference_date={reference_date} | "
             f"reference_period={reference_period!r}"
         )
+        return []
+    
+def get_product_commercial_context(
+    tool_context: ToolContext,
+    product_code: str = "",
+) -> dict[str, Any] | None:
+    try:
+        if not product_code:
+            selected_product = tool_context.state.get("selected_product", {})
+            product_code = selected_product.get("codigo_produto", "")
+
+        if not product_code:
+            product_code = tool_context.state.get("selected_product_last", "")
+
+        if not product_code:
+            return None
+
+        result = (
+            _get_inventory_service()
+            .get_product_commercial_context(product_code)
+        )
+
+        if result:
+            tool_context.state["selected_product"] = result
+            tool_context.state["selected_product_last"] = result["codigo_produto"]
+            tool_context.state["selected_product_codes"] = [result["codigo_produto"]]
+
+        return result
+
+    except Exception:
+        logger.exception("Failed to get product commercial context")
+        return None
+
+def get_products_by_stock_status(
+    status_estoque: str,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    try:
+        products = (
+            _get_inventory_service()
+            .get_products_by_stock_status(
+                status_estoque=status_estoque,
+                limit=limit,
+            )
+        )
+
+        return [
+            _compact_product(product)
+            for product in products
+        ]
+
+    except Exception:
+        logger.exception("Failed to get products by stock status")
+        return []
+    
+def get_top_selling_products(
+    period: str = "13w",
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    try:
+        products = (
+            _get_inventory_service()
+            .get_top_selling_products(
+                period=period,
+                limit=limit,
+            )
+        )
+
+        return [
+            _compact_product(product)
+            for product in products
+        ]
+
+    except Exception:
+        logger.exception("Failed to get top selling products")
+        return []
+    
+def get_slow_moving_products(
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    try:
+        products = (
+            _get_inventory_service()
+            .get_slow_moving_products(limit=limit)
+        )
+
+        return [
+            _compact_product(product)
+            for product in products
+        ]
+
+    except Exception:
+        logger.exception("Failed to get slow moving products")
+        return []
+    
+def get_overstocked_products(
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    try:
+        products = (
+            _get_inventory_service()
+            .get_overstocked_products(limit=limit)
+        )
+
+        return [
+            _compact_product(product)
+            for product in products
+        ]
+
+    except Exception:
+        logger.exception("Failed to get overstocked products")
         return []

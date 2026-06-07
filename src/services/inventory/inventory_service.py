@@ -70,6 +70,14 @@ class InventoryService:
             "estoque_minimo": 1,
             "preco_sintetico": 1,
             "produto_inativo": 1,
+            "codigo_ean_gtin": 1,
+            "status_estoque": 1,
+            "perfil_venda": 1,
+            "cobertura_meses": 1,
+            "venda_ult_13s": 1,
+            "venda_ult_52s": 1,
+            "media_semanal_13": 1,
+            "semanas_com_venda_13": 1,
         }
 
     @staticmethod
@@ -301,33 +309,50 @@ class InventoryService:
         limit: int = 10,
         skip: int = 0,
     ) -> list[dict[str, Any]]:
-
         import re
 
-        try:
-            escaped_term = re.escape(term.strip())
+        escaped_term = re.escape(term.strip())
 
-            cursor = (
-                self.products_read_collection.find(
-                    {
-                        "descricao_completa": {
-                            "$regex": escaped_term,
-                            "$options": "i",
-                        }
-                    },
-                    self._build_product_projection(),
-                )
-                .skip(skip)
-                .limit(limit)
+        query = {
+            "$or": [
+                {
+                    "descricao_completa": {
+                        "$regex": escaped_term,
+                        "$options": "i",
+                    }
+                },
+                {
+                    "familia_produto": {
+                        "$regex": escaped_term,
+                        "$options": "i",
+                    }
+                },
+                {
+                    "codigo_produto": {
+                        "$regex": escaped_term,
+                        "$options": "i",
+                    }
+                },
+                {
+                    "codigo_ean_gtin": {
+                        "$regex": escaped_term,
+                        "$options": "i",
+                    }
+                },
+            ]
+        }
+
+        cursor = (
+            self.products_read_collection.find(
+                query,
+                self._build_product_projection(),
             )
+            .sort("venda_ult_13s", -1)
+            .skip(skip)
+            .limit(limit)
+        )
 
-            return list(cursor)
-
-        except PyMongoError:
-            logger.exception(
-                "Failed to search products"
-            )
-            raise
+        return list(cursor)
 
     def get_products_by_codes(
         self,
@@ -770,3 +795,93 @@ class InventoryService:
                 "Failed to build inventory alert report"
             )
             raise
+        
+    def get_product_commercial_context(
+        self,
+        product_code: str,
+    ) -> dict[str, Any] | None:
+        product = self.get_product_by_code(product_code)
+
+        if not product:
+            return None
+
+        quantidade = product.get("quantidade") or 0
+        estoque_minimo = product.get("estoque_minimo") or 0
+        status_estoque = product.get("status_estoque")
+        perfil_venda = product.get("perfil_venda")
+
+        recommendation = "Produto consultado com sucesso."
+
+        if quantidade <= 0:
+            recommendation = "Produto sem estoque. Nao recomendar venda imediata."
+        elif status_estoque == "RUPTURA":
+            recommendation = "Produto com risco de ruptura. Validar reposicao."
+        elif status_estoque == "EXCESSO ESTOQUE":
+            recommendation = "Produto com excesso de estoque. Bom candidato para oferta."
+        elif perfil_venda == "A":
+            recommendation = "Produto de alto giro. Priorizar disponibilidade."
+        elif quantidade < estoque_minimo:
+            recommendation = "Produto abaixo do estoque minimo. Recomendar reposicao."
+
+        return {
+            **product,
+            "recommendation": recommendation,
+        }
+        
+    def get_products_by_stock_status(
+        self,
+        status_estoque: str,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        return list(
+            self.products_read_collection.find(
+                {
+                    "status_estoque": {
+                        "$regex": f"^{status_estoque}$",
+                        "$options": "i",
+                    }
+                },
+                self._build_product_projection(),
+            )
+            .sort("venda_ult_13s", -1)
+            .limit(limit)
+        )
+        
+    def get_top_selling_products(
+    self,
+    period: str = "13w",
+    limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        field = (
+            "venda_ult_52s"
+            if period == "52w"
+            else "venda_ult_13s"
+        )
+
+        return list(
+            self.products_read_collection.find(
+                {},
+                self._build_product_projection(),
+            )
+            .sort(field, -1)
+            .limit(limit)
+        )
+        
+    def get_slow_moving_products(
+    self,
+    limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        return list(
+            self.products_read_collection.find(
+                {
+                    "$or": [
+                        {"perfil_venda": "SLOW"},
+                        {"media_semanal_13": {"$lte": 1}},
+                        {"semanas_com_venda_13": {"$lte": 2}},
+                    ]
+                },
+                self._build_product_projection(),
+            )
+            .sort("media_semanal_13", 1)
+            .limit(limit)
+        )

@@ -20,9 +20,14 @@ from src.tools.mongo_tools import (
     search_product_by_name,
     get_product_by_code,
     get_product_stock_and_price_summary,
+    get_product_commercial_context,
     get_critical_stock_products,
     get_inventory_overview,
     get_inventory_diff_by_period,
+    get_products_by_stock_status,
+    get_top_selling_products,
+    get_slow_moving_products,
+    get_overstocked_products,
 )
 
 from src.bootstrap import bootstrap_app
@@ -48,9 +53,14 @@ def create_inventory_agent() -> LlmAgent:
             search_product_by_name,
             get_product_by_code,
             get_product_stock_and_price_summary,
+            get_product_commercial_context,
             get_critical_stock_products,
             get_inventory_overview,
             get_inventory_diff_by_period,
+            get_products_by_stock_status,
+            get_top_selling_products,
+            get_slow_moving_products,
+            get_overstocked_products,
         ],
 
         generate_content_config=types.GenerateContentConfig(
