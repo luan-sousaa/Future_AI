@@ -376,58 +376,12 @@ def get_inventory_overview() -> InventoryOverviewResponse:
         }
 
 
-def get_critical_stock_products(
-    alert_type: AlertTypeEnum,
-    limit: int = 20,
-) -> list[dict]:
-
-    logger.info(
-        f"Fetching critical stock products | alert_type={alert_type!r} | limit={limit}"
-    )
-
-    try:
-        result = _get_inventory_service().get_critical_stock_products(
-            alert_type=alert_type,
-            limit=limit,
-        )
-
-        logger.info(
-            f"Critical stock products fetched | "
-            f"alert_type={alert_type!r} | count={len(result)}"
-        )
-
-        return result
-
-    except Exception:
-        logger.exception(
-            f"Failed to get critical stock products | alert_type={alert_type!r}"
-        )
-        return []
-
-
-def get_inactive_products(
-    limit: int = 20,
-) -> list[dict]:
-
-    logger.info(f"Fetching inactive products | limit={limit}")
-
-    try:
-        result = _get_inventory_service().get_inactive_products(limit=limit)
-
-        logger.info(f"Inactive products fetched | count={len(result)}")
-
-        return result
-
-    except Exception:
-        logger.exception("Failed to get inactive products")
-        return []
-
-
 def get_inventory_diff_by_period(
     reference_period: str,
     reference_date: str = "",
-    limit: int = 20,
 ) -> list[dict]:
+    # limit não é exposto ao LLM (fixado interno) — modelos menores erram args.
+    limit = 20
 
     if not reference_date:
         reference_date = datetime.now().date().isoformat()
@@ -467,10 +421,12 @@ def get_inventory_diff_by_period(
     
 def get_product_commercial_context(
     tool_context: ToolContext,
-    product_code: str = "",
 ) -> dict[str, Any] | None:
+    """Detalhes, estoque, perfil de venda e recomendação do produto já
+    encontrado/selecionado na conversa. O código é resolvido internamente a
+    partir do estado da sessão — o agente não precisa (nem deve) informá-lo."""
     try:
-        product_code = _resolve_product_code(tool_context, product_code)
+        product_code = _resolve_product_code(tool_context, "")
 
         if not product_code:
             return None
@@ -491,82 +447,48 @@ def get_product_commercial_context(
         logger.exception("Failed to get product commercial context")
         return None
 
-def get_products_by_stock_status(
-    status_estoque: str,
-    limit: int = 20,
-) -> list[dict[str, Any]]:
+def _safe_product_list(method_name: str, *args) -> list[dict[str, Any]]:
+    """Run an inventory-service list method and return compacted products."""
     try:
-        products = (
-            _get_inventory_service()
-            .get_products_by_stock_status(
-                status_estoque=status_estoque,
-                limit=limit,
-            )
-        )
-
-        return [
-            _compact_product(product)
-            for product in products
-        ]
-
+        service = _get_inventory_service()
+        products = getattr(service, method_name)(*args)
+        return [_compact_product(product) for product in products]
     except Exception:
-        logger.exception("Failed to get products by stock status")
+        logger.exception("Failed to list products | method=%s", method_name)
         return []
     
-def get_top_selling_products(
-    period: str = "13w",
-    limit: int = 20,
-) -> list[dict[str, Any]]:
-    try:
-        products = (
-            _get_inventory_service()
-            .get_top_selling_products(
-                period=period,
-                limit=limit,
-            )
-        )
+def list_low_stock_products() -> list[dict[str, Any]]:
+    """Produtos com estoque abaixo do mínimo — candidatos a reposição."""
+    return _safe_product_list(
+        "get_critical_stock_products", AlertTypeEnum.LOW_STOCK, 20
+    )
 
-        return [
-            _compact_product(product)
-            for product in products
-        ]
 
-    except Exception:
-        logger.exception("Failed to get top selling products")
-        return []
+def list_out_of_stock_products() -> list[dict[str, Any]]:
+    """Produtos zerados / em ruptura (sem estoque)."""
+    return _safe_product_list(
+        "get_critical_stock_products", AlertTypeEnum.OUT_OF_STOCK, 20
+    )
+
+
+def list_overstocked_products() -> list[dict[str, Any]]:
+    """Produtos com excesso de estoque — candidatos a promoção."""
+    return _safe_product_list(
+        "get_critical_stock_products", AlertTypeEnum.OVERSTOCKED, 20
+    )
+
+
+def list_inactive_products() -> list[dict[str, Any]]:
+    """Produtos inativos."""
+    return _safe_product_list("get_inactive_products", 20)
+
+
+def list_top_selling_products() -> list[dict[str, Any]]:
+    """Produtos mais vendidos (maior giro nas últimas 13 semanas)."""
+    return _safe_product_list("get_top_selling_products", "13w", 20)
+
+
+def list_slow_moving_products() -> list[dict[str, Any]]:
+    """Produtos de baixo giro / parados."""
+    return _safe_product_list("get_slow_moving_products", 20)
     
-def get_slow_moving_products(
-    limit: int = 20,
-) -> list[dict[str, Any]]:
-    try:
-        products = (
-            _get_inventory_service()
-            .get_slow_moving_products(limit=limit)
-        )
-
-        return [
-            _compact_product(product)
-            for product in products
-        ]
-
-    except Exception:
-        logger.exception("Failed to get slow moving products")
-        return []
-    
-def get_overstocked_products(
-    limit: int = 20,
-) -> list[dict[str, Any]]:
-    try:
-        products = (
-            _get_inventory_service()
-            .get_overstocked_products(limit=limit)
-        )
-
-        return [
-            _compact_product(product)
-            for product in products
-        ]
-
-    except Exception:
-        logger.exception("Failed to get overstocked products")
-        return []

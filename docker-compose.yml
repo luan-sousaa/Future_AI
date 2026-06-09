@@ -46,20 +46,18 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
-    # GPU (VM with NVIDIA + nvidia-container-toolkit). Uncomment to enable:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    # GPU: not enabled here to keep the stack portable (CPU-only hosts can't
+    # start a service that reserves an NVIDIA device). On an NVIDIA host, enable
+    # it via a local `docker-compose.override.yml` (gitignored) — see README.
 
   # One-shot: pulls the model into the ollama volume on first start.
-  # Keep this model name in sync with OLLAMA_MODEL in .env.
+  # Reads OLLAMA_MODEL from .env ($$ keeps it for the container shell to expand
+  # at runtime, instead of Compose interpolating it at parse time).
   ollama-pull:
     image: ollama/ollama:latest
-    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:7b-instruct"]
+    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull $$OLLAMA_MODEL"]
+    env_file:
+      - .env
     depends_on:
       ollama:
         condition: service_healthy

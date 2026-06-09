@@ -312,48 +312,53 @@ class InventoryService:
     ) -> list[dict[str, Any]]:
         import re
 
-        escaped_term = re.escape(term.strip())
+        cleaned = term.strip()
+        if not cleaned:
+            return []
 
-        query = {
-            "$or": [
-                {
-                    "descricao_completa": {
-                        "$regex": escaped_term,
-                        "$options": "i",
-                    }
-                },
-                {
-                    "familia_produto": {
-                        "$regex": escaped_term,
-                        "$options": "i",
-                    }
-                },
-                {
-                    "codigo_produto": {
-                        "$regex": escaped_term,
-                        "$options": "i",
-                    }
-                },
-                {
-                    "codigo_ean_gtin": {
-                        "$regex": escaped_term,
-                        "$options": "i",
-                    }
-                },
-            ]
-        }
-
-        cursor = (
-            self.products_read_collection.find(
-                query,
-                self._build_product_projection(),
-            )
-            .sort("venda_ult_13s", -1)
-            .skip(skip)
-            .limit(limit)
+        text_fields = (
+            "descricao_completa",
+            "familia_produto",
+            "codigo_produto",
+            "codigo_ean_gtin",
         )
 
-        return list(cursor)
+        def _token_clause(token: str) -> dict:
+            # uma palavra casa se aparecer em qualquer um dos campos textuais
+            escaped = re.escape(token)
+            return {
+                "$or": [
+                    {field: {"$regex": escaped, "$options": "i"}}
+                    for field in text_fields
+                ]
+            }
+
+        def _run(query: dict) -> list[dict[str, Any]]:
+            cursor = (
+                self.products_read_collection.find(
+                    query,
+                    self._build_product_projection(),
+                )
+                .sort("venda_ult_13s", -1)
+                .skip(skip)
+                .limit(limit)
+            )
+            return list(cursor)
+
+        # Ignora palavras muito curtas ("la", "de", "ml") que só geram ruído;
+        # se sobrar nada, usa o termo inteiro.
+        tokens = [t for t in cleaned.split() if len(t) >= 3] or [cleaned]
+
+        # Cada palavra precisa aparecer (em qualquer ordem): casa "amstel ultra",
+        # "ultra amstel" ou só "amstel".
+        results = _run({"$and": [_token_clause(t) for t in tokens]})
+
+        # Fallback: se nenhuma linha contém TODAS as palavras (ex.: o dado abrevia
+        # "CERVEJA" como "CERV"), relaxa para QUALQUER palavra e melhora o recall.
+        if not results and len(tokens) > 1:
+            results = _run({"$or": [_token_clause(t) for t in tokens]})
+
+        return results
 
     def get_products_by_codes(
         self,

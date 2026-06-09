@@ -15,19 +15,16 @@ from src.callbacks.social_callback import (
 )
 
 from src.tools.mongo_tools import (
-    check_product_availability,
-    get_inactive_products,
     search_product_by_name,
-    get_product_by_code,
-    get_product_stock_and_price_summary,
     get_product_commercial_context,
-    get_critical_stock_products,
     get_inventory_overview,
     get_inventory_diff_by_period,
-    get_products_by_stock_status,
-    get_top_selling_products,
-    get_slow_moving_products,
-    get_overstocked_products,
+    list_low_stock_products,
+    list_out_of_stock_products,
+    list_overstocked_products,
+    list_inactive_products,
+    list_top_selling_products,
+    list_slow_moving_products,
 )
 
 from src.bootstrap import bootstrap_app
@@ -48,19 +45,16 @@ def create_inventory_agent() -> LlmAgent:
         instruction=create_inventory_prompt(),
 
         tools=[
-            check_product_availability,
-            get_inactive_products,
             search_product_by_name,
-            get_product_by_code,
-            get_product_stock_and_price_summary,
             get_product_commercial_context,
-            get_critical_stock_products,
             get_inventory_overview,
             get_inventory_diff_by_period,
-            get_products_by_stock_status,
-            get_top_selling_products,
-            get_slow_moving_products,
-            get_overstocked_products,
+            list_low_stock_products,
+            list_out_of_stock_products,
+            list_overstocked_products,
+            list_inactive_products,
+            list_top_selling_products,
+            list_slow_moving_products,
         ],
 
         generate_content_config=types.GenerateContentConfig(
