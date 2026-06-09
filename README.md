@@ -81,6 +81,26 @@ VLLM_MODEL=openai/Qwen/Qwen2.5-7B-Instruct
 VLLM_API_BASE=http://localhost:8000/v1
 ```
 
+### Escolhendo o modelo conforme a máquina
+
+Com o Ollama no Docker, **dimensione o modelo ao hardware**. Quanto mais forte o modelo, mais confiável o tool-calling (peça central deste agente); quanto menor, mais rápido, porém modelos pequenos às vezes erram o formato dos argumentos das tools.
+
+| Hardware | Sugestão | Observação |
+|----------|----------|------------|
+| GPU / máquina forte | `qwen2.5:7b-instruct` ou maior | Tool-calling sólido; rápido com GPU |
+| CPU modesta | `qwen2.5:3b` | ~3x mais rápido que o 7B em CPU; tool-calling ocasionalmente instável |
+| Só validar o fluxo | `qwen2.5:0.5b` | Mínimo; serve para smoke test, não para comportamento real |
+
+Para trocar de modelo basta (1) ajustar `OLLAMA_MODEL` no `.env`, (2) baixá-lo no serviço do Ollama e (3) recriar o `agent-api`:
+
+```bash
+# 1) edite OLLAMA_MODEL no .env (ex.: qwen2.5:3b)
+# 2) baixe o modelo no container do ollama (ou deixe o ollama-pull baixar no próximo `up`)
+docker compose exec ollama ollama pull qwen2.5:3b
+# 3) recrie só o agent-api para ele usar o novo modelo
+docker compose up -d --no-deps agent-api
+```
+
 ## Estrutura
 
 ```text

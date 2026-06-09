@@ -62,6 +62,13 @@ docker compose up --build              # mongo, mongo-seed, agent-api, streamlit
     the `ollama`/`ollama-pull` services.
   - To use a cloud model instead, set `MODEL_PROVIDER=gemini` (or `openai`) and the
     corresponding API key in `.env`.
+  - **Size the model to the hardware.** Tool-calling reliability scales with model
+    strength: `qwen2.5:7b-instruct` (or larger) on GPU/strong hosts calls tools
+    cleanly; `qwen2.5:3b` is ~3x faster on CPU but occasionally malforms tool
+    arguments (e.g. wrapping a value as `{"type":"string","value":...}`); `qwen2.5:0.5b`
+    is smoke-test only. To switch: set `OLLAMA_MODEL` in `.env`, pull it
+    (`docker compose exec ollama ollama pull <model>`), then recreate the API with
+    `docker compose up -d --no-deps agent-api`.
 
 ### Testing
 ```bash

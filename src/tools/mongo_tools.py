@@ -79,9 +79,12 @@ def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
 def search_product_by_name(
     tool_context: ToolContext,
     term: str,
-    limit: int = 10,
-    skip: int = 0,
 ) -> list[dict[str, Any]]:
+    # limit/skip não são expostos ao LLM: modelos menores tendem a passar o
+    # schema ({"type":"integer"}) em vez de um valor, quebrando a busca.
+    # São fixados aqui para manter a chamada simples (só `term`).
+    limit = 10
+    skip = 0
 
     logger.info(
         "Searching products by name | "
