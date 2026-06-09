@@ -78,7 +78,23 @@ def processar_pagamento(
         
         if not product_name and selected_product:
             product_name = selected_product.get("descricao_completa", "")
-            
+
+        if not product_name and last_stock_check:
+            product_name = last_stock_check.get("descricao_completa", "")
+
+        if not product_name and product_code:
+            for product in tool_context.state.get("last_search_products", []):
+                if product.get("codigo_produto") == product_code:
+                    product_name = product.get("descricao_completa", "")
+                    break
+
+        # Last resort: look the product up by code so a resolved code is never
+        # blocked by a missing name.
+        if product_code and not product_name:
+            product = InventoryService().get_product_by_code(product_code)
+            if product:
+                product_name = product.get("descricao_completa", "")
+
         if not product_code or not product_name:
             return {
                 "error": True,

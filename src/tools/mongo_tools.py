@@ -60,6 +60,28 @@ def _resolve_product_code(
     return ""
 
 
+def _resolve_product_name(
+    tool_context: ToolContext,
+    product_code: str,
+) -> str:
+    """Resolve a product's full description for a code from session state.
+
+    Looks in selected_product, then the cached search results. Returns an
+    empty string when the name cannot be found in state.
+    """
+    selected_product = tool_context.state.get("selected_product", {})
+    if selected_product.get("codigo_produto") == product_code:
+        name = selected_product.get("descricao_completa", "")
+        if name:
+            return name
+
+    for product in tool_context.state.get("last_search_products", []):
+        if product.get("codigo_produto") == product_code:
+            return product.get("descricao_completa", "")
+
+    return ""
+
+
 def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
     return {
         "codigo_produto": product.get("codigo_produto"),
@@ -314,9 +336,21 @@ def check_product_availability(
             f"disponivel={result.get('disponivel')}"
         )
 
+        product_name = _resolve_product_name(tool_context, product_code)
+        if product_name:
+            result["descricao_completa"] = product_name
+
+        # Promote to selected_product so downstream tools (payment) always have
+        # both code and name — even when the search returned multiple results
+        # and the customer picked one by code without a get_product_by_code call.
         selected_product = tool_context.state.get("selected_product", {})
-        if selected_product.get("descricao_completa"):
-            result["descricao_completa"] = selected_product["descricao_completa"]
+        if selected_product.get("codigo_produto") != product_code:
+            tool_context.state["selected_product"] = {
+                "codigo_produto": product_code,
+                "descricao_completa": product_name,
+            }
+            tool_context.state["selected_product_last"] = product_code
+            tool_context.state["selected_product_codes"] = [product_code]
 
         tool_context.state["last_stock_check"] = result
 
