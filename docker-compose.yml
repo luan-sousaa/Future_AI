@@ -1,0 +1,141 @@
+# Self-contained demo: `docker compose up --build` brings up everything,
+# including a MongoDB that is seeded from the Excel in the repo. Nothing
+# external is required besides a model API key (GOOGLE_API_KEY / OPENAI_API_KEY).
+#
+# Services:
+#   - mongo      : local MongoDB with a persistent volume
+#   - mongo-seed : one-shot job that loads products from the repo Excel
+#   - agent-api  : ADK FastAPI server (inventory_app + retailer_app)
+#   - streamlit  : dashboard + chat front-end
+#   - phoenix    : (optional) tracing UI
+#
+# To use an EXTERNAL MongoDB (e.g. Atlas) instead: delete the `mongo` and
+# `mongo-seed` services, remove the `*mongo-uris` override from agent-api and
+# streamlit, and set MONGO_READ_URI / MONGO_WRITE_URI in .env.
+
+# Points the app at the in-cluster MongoDB, overriding whatever is in .env.
+x-mongo-uris: &mongo-uris
+  MONGO_READ_URI: mongodb://mongo:27017
+  MONGO_WRITE_URI: mongodb://mongo:27017
+
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"   # exposed so you can inspect the DB from the host
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # GPU (VM with NVIDIA + nvidia-container-toolkit). Uncomment to enable:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # One-shot: pulls the model into the ollama volume on first start.
+  # Keep this model name in sync with OLLAMA_MODEL in .env.
+  ollama-pull:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:7b-instruct"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  mongo-seed:
+    build: .
+    image: future-ai-agent:latest
+    command: ["python", "-m", "src.repositories.data_to_mongo"]
+    env_file:
+      - .env
+    environment:
+      <<: *mongo-uris
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+
+  agent-api:
+    build: .
+    image: future-ai-agent:latest
+    command: ["adk", "api_server", ".", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - .env
+    environment:
+      <<: *mongo-uris
+      PHOENIX_ENDPOINT: http://phoenix:6006/v1/traces
+      # Reach the bundled Ollama service (overrides the localhost default).
+      OLLAMA_API_BASE: http://ollama:11434
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-seed:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+      phoenix:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  streamlit:
+    build: .
+    image: future-ai-agent:latest
+    command:
+      - streamlit
+      - run
+      - streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+    env_file:
+      - .env
+    environment:
+      <<: *mongo-uris
+      AGENT_API_URL: http://agent-api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      agent-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"   # Phoenix UI
+      - "4317:4317"   # OTLP gRPC
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  ollama-data:

@@ -10,7 +10,7 @@ class MongoConfig:
         self.db_name = os.getenv("MONGO_DB_NAME")
         self.products_collection_name = os.getenv("MONGO_PRODUCTS_COLLECTION")
         self.payments_collection_name = os.getenv("MONGO_PAYMENTS_COLLECTION")
-        self.sales_history_collecttion_name = os.getenv("MONGO_SALES_HISTORY_COLLECTION")
+        self.sales_history_collection_name = os.getenv("MONGO_SALES_HISTORY_COLLECTION")
         self.inventory_snapshots_collection_name = os.getenv("MONGO_INVENTORY_SNAPSHOTS_COLLECTION")
         self.inventory_diff_collection_name = os.getenv("MONGO_INVENTORY_DIFF_COLLECTION")
     

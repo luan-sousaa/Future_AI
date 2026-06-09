@@ -23,6 +23,27 @@ class EmailNotificationService:
         subject: str,
         body: str,
     ) -> dict:
+        missing = [
+            name
+            for name, value in (
+                ("SMTP_HOST", self.smtp_host),
+                ("SMTP_USERNAME", self.smtp_username),
+                ("SMTP_PASSWORD", self.smtp_password),
+                ("ALERT_EMAIL_FROM", self.email_from),
+                ("ALERT_EMAIL_TO", self.email_to),
+            )
+            if not value
+        ]
+        if missing:
+            logger.error(
+                "Cannot send email — missing SMTP configuration: %s",
+                ", ".join(missing),
+            )
+            return {
+                "status": "error",
+                "message": f"Missing SMTP configuration: {', '.join(missing)}",
+            }
+
         try:
             message = EmailMessage()
             message["Subject"] = subject

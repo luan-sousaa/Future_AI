@@ -7,14 +7,20 @@ from src.config.mongo_config import MongoConfig
 class MongoService:
     def __init__(self, config: MongoConfig) -> None:
         self.config = config
-        
+        self._read_client: MongoClient | None = None
+        self._write_client: MongoClient | None = None
+
     def get_read_client(self) -> MongoClient:
-        self.config.validate_read()
-        return MongoClient(self.config.mongo_read_uri)
-    
+        if self._read_client is None:
+            self.config.validate_read()
+            self._read_client = MongoClient(self.config.mongo_read_uri)
+        return self._read_client
+
     def get_write_client(self) -> MongoClient:
-        self.config.validate_write()
-        return MongoClient(self.config.mongo_write_uri)
+        if self._write_client is None:
+            self.config.validate_write()
+            self._write_client = MongoClient(self.config.mongo_write_uri)
+        return self._write_client
     
     def get_read_database(self) -> Database:
         client = self.get_read_client()
@@ -34,7 +40,7 @@ class MongoService:
     
     def get_sales_history_collection(self, read_only: bool = True) -> Collection:
         db = self.get_read_database() if read_only else self.get_write_database()
-        return db[self.config.sales_history_collecttion_name]
+        return db[self.config.sales_history_collection_name]
     
     def get_inventory_snapshots_collection(self, read_only: bool = True) -> Collection:
         db = self.get_read_database() if read_only else self.get_write_database()

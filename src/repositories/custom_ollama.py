@@ -15,7 +15,12 @@ class CustomOllama(LiteLlm):
                 "OLLAMA_MODEL not configured."
             )
 
+        api_base = os.getenv(
+            "OLLAMA_API_BASE",
+            "http://localhost:11434",
+        )
+
         super().__init__(
             model=f"ollama_chat/{model}",
-            api_base="http://localhost:11434",
+            api_base=api_base,
         )

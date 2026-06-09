@@ -1,0 +1,30 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets / env
+.env
+.env.*
+!.env.example
+
+# ADK local state
+**/.adk/
+
+# VCS / IDE / OS
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Docs and tests not needed at runtime
+*.md

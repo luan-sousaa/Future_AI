@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, TypedDict
 
+from pymongo import ReturnDocument
 from pymongo.errors import PyMongoError
 
 from src.config.alerts.alert_manager import AlertTypeManager
@@ -494,8 +495,8 @@ class InventoryService:
             )
 
         try:
-            result = (
-                self.products_write_collection.update_one(
+            updated_product = (
+                self.products_write_collection.find_one_and_update(
                     {
                         "codigo_produto": product_code,
                         "quantidade": {
@@ -512,19 +513,14 @@ class InventoryService:
                             )
                         },
                     },
+                    return_document=ReturnDocument.AFTER,
                 )
             )
 
-            if result.modified_count == 0:
+            if updated_product is None:
                 raise ValueError(
                     "Insufficient stock or product not found."
                 )
-
-            updated_product = (
-                self.get_current_stock_by_product_code(
-                    product_code
-                )
-            )
 
             logger.info(
                 "Stock updated successfully",
@@ -536,9 +532,9 @@ class InventoryService:
 
             return {
                 "codigo_produto": product_code,
-                "quantidade_atual": updated_product[
+                "quantidade_atual": updated_product.get(
                     "quantidade"
-                ],
+                ),
             }
 
         except PyMongoError:

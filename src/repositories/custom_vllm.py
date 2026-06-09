@@ -10,7 +10,7 @@ class CustomVLlm(LiteLlm):
         )
         
         super().__init__(
-             model=model,
-            api_base="http://localhost:8000/v1",
+            model=model,
+            api_base=os.getenv("VLLM_API_BASE", "http://localhost:8000/v1"),
             api_key=os.getenv("OPENAI_API_KEY"),
         )

@@ -1,3 +1,20 @@
+# Segredos / ambiente
 .env
+
+# Python
 .venv/
+venv/
 __pycache__/
+*.pyc
+.pytest_cache/
+
+# Artefatos locais do ADK
+**/.adk/session.db
+**/.adk/eval_history/
+
+# Logs
+*.log
+
+# Dados de negócio (descomente se não quiser versionar)
+src/repositories/*.xlsx
+src/datasets/*.jsonl

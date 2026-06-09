@@ -1,7 +1,12 @@
 import logging
 import uuid
 
+from email_validator import EmailNotValidError, validate_email
 from google.adk.tools import ToolContext
+
+from src.services.inventory.inventory_service import InventoryService
+from src.services.payment.payment_record import PaymentRecordService
+from src.services.sales.sales_record import SalesHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +42,31 @@ def processar_pagamento(
           - message (opcional): mensagem de erro
     """
     try:
+        if valor is None or valor <= 0:
+            return {
+                "error": True,
+                "message": "Payment amount (valor) must be greater than 0.",
+            }
+
+        if quantity <= 0:
+            return {
+                "error": True,
+                "message": "Quantity must be greater than 0.",
+            }
+
+        try:
+            normalized = validate_email(email, check_deliverability=False)
+            email = normalized.normalized
+        except EmailNotValidError as exc:
+            logger.warning("Invalid email provided for payment | error=%s", exc)
+            return {
+                "error": True,
+                "message": "Invalid email address.",
+            }
+
         selected_product = tool_context.state.get("selected_product", {})
         last_stock_check = tool_context.state.get("last_stock_check", {})
-        
+
         if not product_code and selected_product:
             product_code = selected_product.get("codigo_produto", "")
 
@@ -67,8 +94,6 @@ def processar_pagamento(
         }
         
         # Salvar registro de pagamento
-        from src.services.payment.payment_record import PaymentRecordService
-
         payment_record = PaymentRecordService()
         payment_record.save_payment_record(
             source="mock",
@@ -82,10 +107,6 @@ def processar_pagamento(
         # Salvar registro de venda
         # venda só é armazenada no DB se for aprovada após o pagamento
         if resultado.get("status") == "approved" and product_code and product_name:
-            from src.services.inventory.inventory_service import InventoryService
-
-            from src.services.sales.sales_record import SalesHistoryService
-
             sales_record = SalesHistoryService()
             inventory_service = InventoryService()
             

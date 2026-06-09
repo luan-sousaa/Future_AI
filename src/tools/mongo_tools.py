@@ -25,6 +25,41 @@ def _get_inventory_service():
 
     return _inventory_service
 
+def _resolve_product_code(
+    tool_context: ToolContext,
+    explicit_code: str = "",
+) -> str:
+    """Resolve a single product code from the explicit argument or session state.
+
+    Resolution order: explicit argument → selected_product → selected_product_last
+    → last_search_product_codes (only when it holds exactly one result).
+    Returns an empty string when no code can be resolved.
+    """
+    if explicit_code:
+        return explicit_code
+
+    selected_product = tool_context.state.get("selected_product", {})
+    code = selected_product.get("codigo_produto", "")
+    if code:
+        logger.debug("Resolved product code from selected_product | %r", code)
+        return code
+
+    code = tool_context.state.get("selected_product_last", "")
+    if code:
+        logger.debug("Resolved product code from selected_product_last | %r", code)
+        return code
+
+    last_search_codes = tool_context.state.get("last_search_product_codes", [])
+    if len(last_search_codes) == 1:
+        logger.debug(
+            "Resolved product code from last_search_product_codes | %r",
+            last_search_codes[0],
+        )
+        return last_search_codes[0]
+
+    return ""
+
+
 def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
     return {
         "codigo_produto": product.get("codigo_produto"),
@@ -252,33 +287,7 @@ def check_product_availability(
     )
 
     try:
-        if not product_code:
-            selected_product = tool_context.state.get("selected_product", {})
-            product_code = selected_product.get("codigo_produto", "")
-            if product_code:
-                logger.debug(
-                    f"No product_code provided — resolved from selected_product | "
-                    f"codigo_produto={product_code!r}"
-                )
-
-        if not product_code:
-            product_code = tool_context.state.get("selected_product_last", "")
-            if product_code:
-                logger.debug(
-                    f"Resolved from selected_product_last | "
-                    f"codigo_produto={product_code!r}"
-                )
-
-        if not product_code:
-            last_search_codes = tool_context.state.get(
-                "last_search_product_codes", []
-            )
-            if len(last_search_codes) == 1:
-                product_code = last_search_codes[0]
-                logger.debug(
-                    f"Resolved from last_search_product_codes (single result) | "
-                    f"codigo_produto={product_code!r}"
-                )
+        product_code = _resolve_product_code(tool_context, product_code)
 
         if not product_code:
             logger.warning(
@@ -458,12 +467,7 @@ def get_product_commercial_context(
     product_code: str = "",
 ) -> dict[str, Any] | None:
     try:
-        if not product_code:
-            selected_product = tool_context.state.get("selected_product", {})
-            product_code = selected_product.get("codigo_produto", "")
-
-        if not product_code:
-            product_code = tool_context.state.get("selected_product_last", "")
+        product_code = _resolve_product_code(tool_context, product_code)
 
         if not product_code:
             return None

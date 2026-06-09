@@ -1,3 +1,9 @@
 pytest
+pytest-cov
+pytest-mock
 pandas
 openpyxl
+
+# Linters (used by CI workflows)
+flake8
+pylint
