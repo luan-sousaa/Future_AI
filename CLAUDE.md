@@ -47,6 +47,11 @@ docker compose up --build              # mongo, mongo-seed, agent-api, streamlit
   and `PHOENIX_ENDPOINT` to `http://phoenix:6006/v1/traces`.
 - **To use external MongoDB (Atlas) instead:** delete the `mongo`/`mongo-seed`
   services and the `*mongo-uris` overrides, and set the URIs in `.env`.
+- **After editing Python code, rebuild the image:** `docker compose up -d --build`
+  (or `docker compose build`). A plain `docker compose up -d` reuses the existing
+  `future-ai-agent:latest` image, so `src/` changes won't reach the container until
+  a rebuild — a stale image was the root cause of a `localhost:11434` connection
+  error even with `OLLAMA_API_BASE` correctly overridden.
 - **Model provider:** the stack runs Ollama by default. A bundled `ollama` service
   serves the model; `ollama-pull` downloads `OLLAMA_MODEL` (~GBs) on first `up` into
   the `ollama-data` volume. Compose overrides `OLLAMA_API_BASE` to `http://ollama:11434`.

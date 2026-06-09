@@ -39,6 +39,7 @@ Notas operacionais:
 - **Overrides:** o Compose injeta `MONGO_READ_URI`/`MONGO_WRITE_URI` → serviço `mongo`, `AGENT_API_URL` → `http://agent-api:8000`, `PHOENIX_ENDPOINT` → `http://phoenix:6006/v1/traces` e `OLLAMA_API_BASE` → `http://ollama:11434`.
 - **Modelo:** `ollama-pull` baixa `OLLAMA_MODEL` (alguns GB) no volume `ollama-data` na primeira subida. Em host com GPU, descomente `deploy.resources` no serviço `ollama` (requer nvidia-container-toolkit); em CPU a inferência é lenta.
 - **MongoDB externo (Atlas):** remova os serviços `mongo`/`mongo-seed` e os overrides `*mongo-uris`, e defina as URIs no `.env`.
+- **Após mudar código Python, rebuilde a imagem:** `docker compose up -d --build` (ou `docker compose build`). Um `docker compose up -d` sozinho reaproveita a imagem antiga, então alterações em `src/` não entram no container até o rebuild.
 
 ## Execução local (desenvolvimento)
 

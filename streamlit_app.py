@@ -15,6 +15,9 @@ load_dotenv()
 
 PAGE_TITLE = "Future AI Agent"
 DEFAULT_API_URL = os.getenv("AGENT_API_URL", "http://localhost:8000")
+# Timeout (segundos) para chamadas ao agente. Modelos locais em CPU (ex.: Qwen 7B)
+# podem levar mais de 120s na primeira resposta; ajustável via env.
+AGENT_API_TIMEOUT = float(os.getenv("AGENT_API_TIMEOUT", "300"))
 
 
 st.set_page_config(
@@ -434,7 +437,7 @@ def call_agent(
     response = requests.post(
         f"{api_url}/run",
         json=payload,
-        timeout=120,
+        timeout=AGENT_API_TIMEOUT,
     )
     response.raise_for_status()
 
