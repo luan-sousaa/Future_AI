@@ -33,10 +33,16 @@ Os system prompts ficam em `src/prompts/`. Trechos que definem o comportamento e
 - Do not say that information is unavailable if a previous tool result has it.
 ```
 
-**Roteamento de tools (Inventory Agent):** o prompt mapeia intenção → tool, ex.:
+**Roteamento de tools (Inventory Agent):** o prompt mapeia intenção → **tool nomeada
+sem parâmetros** (zero-arg), ex.:
 ```
-- get_critical_stock_products: use for low stock, rupture, replenishment, critical inventory.
-- get_inventory_diff_by_period: use for movement, variation, or inventory period analysis.
+- list_low_stock_products: estoque abaixo do mínimo / reposição.
+- list_out_of_stock_products: produtos sem estoque / em ruptura.
+- list_overstocked_products / list_inactive_products: excesso / inativos.
+- list_top_selling_products / list_slow_moving_products: giro alto / baixo.
+- get_inventory_diff_by_period: movimentação ou variação por período.
+- search_product_by_name → get_product_commercial_context: detalhe de um produto
+  citado por nome (o código é resolvido internamente, via estado da sessão).
 ```
 
 **Fluxo de venda controlado (Retailer Agent):**
@@ -55,7 +61,18 @@ Durante o desenvolvimento (com foco em modelos locais de 7B, como o Qwen), vári
 | **Devolvia JSON cru** — expunha o retorno bruto da tool. | Sem regra de formatação. | `Never return raw JSON. Never expose raw field names from tools. Always rewrite them as natural Portuguese labels (Código, Produto, Preço, Estoque atual…).` |
 | **Loop de tool** — chamava a mesma tool repetidamente para o mesmo pedido. | Sem guarda de repetição. | `NEVER repeatedly call the same tool for the same request unless: the previous call failed, the user requested updated data, or more parameters are required.` |
 | **Re-perguntava dados já fornecidos** — pedia de novo nome/quantidade já ditos. | Prompt sem uso de contexto. | `Use conversation context. Do not ask again for data already given.` |
-| **Inventava tipos de alerta** — criava categorias inexistentes (ex.: "estoque médio"). | Lista de alertas não fixada. | `Never invent alert types. Only use these alert types: critical, low_stock, zero_stock, rupture_risk, negative_stock, out_of_stock, inactive, overstocked, high_movement, low_movement.` |
+| **Inventava tipos de alerta** — criava categorias inexistentes (ex.: "estoque médio"). | Tipo de alerta era um parâmetro livre passado pelo modelo. | **Correção estrutural:** as condições viraram **tools nomeadas dedicadas** (`list_low_stock_products`, `list_out_of_stock_products`, `list_overstocked_products`, `list_inactive_products`, `list_top_selling_products`, `list_slow_moving_products`). Sem campo de tipo de alerta, o modelo não tem como inventar categoria. |
 | **Vazava raciocínio interno** — explicava o passo a passo do reasoning. | Sem restrição. | `Do not expose internal reasoning.` |
+| **Argumentos malformados em modelos pequenos** — o 3B passava o schema (`{"type":"integer"}`) no lugar do valor de `limit`/`skip`, quebrando a busca. | Parâmetros operacionais expostos ao LLM. | **Correção estrutural:** parâmetros como `limit`/`skip` saíram da assinatura visível ao LLM (fixados internamente). Tools de lista ficaram zero-arg. |
+| **Inventava código de produto** — ao pedir estoque de um produto citado por nome, o modelo fabricava um código (ex.: `TABACO_LAREVOLUCION`). | Tool exigia `product_code` e o prompt não orientava buscar primeiro. | Regra de prompt: *"sempre `search_product_by_name` primeiro; nunca inventar código"*. **+ Correção estrutural:** `get_product_by_code` saiu do inventário e o `get_product_commercial_context` resolve o código pelo estado da sessão. |
+| **Busca por frase exata não achava** — "cerveja amstel" retornava vazio (dado abreviado "CERV AMSTEL"). | Termo casado como substring contígua. | **Correção estrutural:** busca **tokenizada** (cada palavra casa em qualquer ordem) com fallback para qualquer-palavra, ignorando tokens curtos. |
 
-> **Lição de engenharia de prompt:** prompts longos e abstratos performam mal em modelos locais. A solução foi encurtar, usar regras imperativas (`NEVER` / `ALWAYS`) e mapear intenção→tool de forma explícita, em vez de descrever o comportamento desejado de modo genérico.
+> **Lição de engenharia de prompt:** prompts longos e abstratos performam mal em
+> modelos locais. A solução foi encurtar, usar regras imperativas (`NEVER` / `ALWAYS`)
+> e mapear intenção→tool de forma explícita.
+>
+> **Lição de design de tools (igualmente importante):** muitos erros de modelos
+> menores não se resolvem no prompt, e sim **reduzindo a superfície de argumentos**.
+> Todo parâmetro exposto ao LLM é algo que ele pode malformar — por isso preferimos
+> **tools nomeadas zero-arg** e resolução de identificadores (código de produto) pelo
+> **estado da sessão**, em vez de pedir que o modelo os forneça.
