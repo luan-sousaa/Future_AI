@@ -82,6 +82,28 @@ def _resolve_product_name(
     return ""
 
 
+def _complement_summaries(product_code: str) -> list[dict[str, Any]]:
+    """Complementos (cross-sell) compactos para anexar no resultado de outra
+    tool. Entregar junto do produto faz modelos menores oferecerem o
+    'leva-junto' sem precisarem disparar uma segunda tool."""
+    try:
+        items = _get_inventory_service().get_complementary_products(
+            product_code, limit=3
+        )
+        return [
+            {
+                "codigo_produto": item.get("codigo_produto"),
+                "descricao_completa": item.get("descricao_completa"),
+            }
+            for item in items
+        ]
+    except Exception:
+        logger.exception(
+            "Failed to build complement summaries | code=%r", product_code
+        )
+        return []
+
+
 def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
     return {
         "codigo_produto": product.get("codigo_produto"),
@@ -156,6 +178,22 @@ def search_product_by_name(
             tool_context.state["selected_product"] = selected_product
             tool_context.state["selected_product_last"] = selected_code
             tool_context.state["selected_product_codes"] = [selected_code]
+
+        # Entrega o cross-sell já no resultado da busca — o único tool que o
+        # modelo chama de forma garantida. Modelos menores costumam escolher um
+        # item da lista e narrar tudo daqui, sem disparar outra tool. Memoiza
+        # por família (resultados de uma busca quase sempre compartilham
+        # família) para não repetir a consulta ao grafo por produto.
+        complement_cache: dict[str, list[dict[str, Any]]] = {}
+        for product in search_results:
+            familia = product.get("familia_produto")
+            if not familia:
+                continue
+            if familia not in complement_cache:
+                complement_cache[familia] = _complement_summaries(
+                    product["codigo_produto"]
+                )
+            product["complementos"] = complement_cache[familia]
 
         return search_results
 
@@ -290,6 +328,7 @@ def get_product_stock_and_price_summary(
                 "quantidade": p.get("quantidade"),
                 "estoque_minimo": p.get("estoque_minimo"),
                 "preco_sintetico": p.get("preco_sintetico"),
+                "complementos": _complement_summaries(p["codigo_produto"]),
             }
             for p in products
         ]
@@ -480,6 +519,35 @@ def get_product_commercial_context(
     except Exception:
         logger.exception("Failed to get product commercial context")
         return None
+
+def suggest_complementary_products(
+    tool_context: ToolContext,
+) -> list[dict[str, Any]]:
+    """Sugestões de "leva-junto" (cross-sell) que casam com o produto já
+    selecionado na conversa — ex.: petiscos/gelo para quem leva cerveja. O
+    código da âncora é resolvido internamente a partir do estado da sessão; o
+    agente não informa nada. Use só após um produto estar selecionado, para
+    oferecer complementos. Retorna [] quando não há sugestão (não invente)."""
+    try:
+        product_code = _resolve_product_code(tool_context, "")
+        if not product_code:
+            logger.info("No anchor product to suggest complements for")
+            return []
+
+        suggestions = _get_inventory_service().get_complementary_products(
+            product_code, limit=3
+        )
+
+        logger.info(
+            "Complementary suggestions returned | anchor=%r | count=%d",
+            product_code, len(suggestions),
+        )
+        return [_compact_product(product) for product in suggestions]
+
+    except Exception:
+        logger.exception("Failed to suggest complementary products")
+        return []
+
 
 def _safe_product_list(method_name: str, *args) -> list[dict[str, Any]]:
     """Run an inventory-service list method and return compacted products."""

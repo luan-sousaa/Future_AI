@@ -886,3 +886,110 @@ class InventoryService:
             .sort("media_semanal_13", 1)
             .limit(limit)
         )
+
+    def _pick_diverse_by_family(
+        self,
+        families: list[str],
+        exclude_code: Any,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Escolhe produtos intercalando as famílias complementares (round-robin),
+        cada família ordenada por giro. Evita devolver tudo da mesma família."""
+        per_family: dict[str, list[dict[str, Any]]] = {}
+        for familia in families:
+            per_family[familia] = list(
+                self.products_read_collection.find(
+                    {
+                        "familia_produto": familia,
+                        "codigo_produto": {"$ne": exclude_code},
+                        "quantidade": {"$gt": 0},
+                        "produto_inativo": {
+                            "$not": {"$regex": "^sim$", "$options": "i"}
+                        },
+                    },
+                    self._build_product_projection(),
+                )
+                .sort("venda_ult_13s", -1)
+                .limit(limit)
+            )
+
+        picks: list[dict[str, Any]] = []
+        seen = {exclude_code}
+        idx = 0
+        while len(picks) < limit:
+            progressed = False
+            for familia in families:
+                items = per_family.get(familia, [])
+                if idx < len(items):
+                    product = items[idx]
+                    code = product.get("codigo_produto")
+                    if code not in seen:
+                        picks.append(product)
+                        seen.add(code)
+                        progressed = True
+                        if len(picks) >= limit:
+                            break
+            if not progressed:
+                break
+            idx += 1
+
+        return picks
+
+    def get_complementary_products(
+        self,
+        product_code: str,
+        limit: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Sugestões de cross-sell ("leva-junto") para a âncora informada.
+
+        Híbrido: usa o grafo de co-ocorrência (aprendido do histórico) quando
+        ele tem sinal; senão cai no mapa estático de famílias complementares.
+        Em ambos os casos escolhe produtos com estoque, ativos, com diversidade
+        entre as famílias complementares e ordenados por giro."""
+        from src.config.cross_sell import complementary_families
+        from src.services.sales.sales_record import SalesHistoryService
+
+        base = self.get_product_by_code(product_code)
+        if not base:
+            return []
+
+        familia = base.get("familia_produto")
+        if not familia:
+            return []
+
+        anchor_code = base["codigo_produto"]
+
+        # 1) Grafo primeiro (co-ocorrência real); vazio enquanto não há cestas.
+        try:
+            target_families = (
+                SalesHistoryService().get_cooccurrence_complement_families(
+                    familia, limit=limit
+                )
+            )
+        except Exception:
+            logger.exception("Co-occurrence lookup failed | familia=%r", familia)
+            target_families = []
+
+        source = "graph"
+
+        # 2) Fallback para o mapa estático (cold start).
+        if not target_families:
+            target_families = complementary_families(familia)
+            source = "map"
+
+        if not target_families:
+            logger.info(
+                "No complementary families for | familia=%r", familia
+            )
+            return []
+
+        picks = self._pick_diverse_by_family(
+            target_families, exclude_code=anchor_code, limit=limit
+        )
+
+        logger.info(
+            "Cross-sell suggestions | familia=%r | source=%s | "
+            "target_families=%r | picks=%d",
+            familia, source, target_families, len(picks),
+        )
+        return picks

@@ -15,6 +15,13 @@ from src.tools.mongo_tools import (
     get_product_by_code,
     get_product_stock_and_price_summary,
     check_product_availability,
+    suggest_complementary_products,
+)
+
+from src.tools.cart_tools import (
+    add_to_cart,
+    view_cart,
+    remove_from_cart,
 )
 
 from src.tools.payment_tools import processar_pagamento
@@ -41,6 +48,10 @@ def create_agent() -> LlmAgent:
             get_product_by_code,
             get_product_stock_and_price_summary,
             check_product_availability,
+            suggest_complementary_products,
+            add_to_cart,
+            view_cart,
+            remove_from_cart,
             processar_pagamento,
         ],
 
