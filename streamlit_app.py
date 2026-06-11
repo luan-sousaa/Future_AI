@@ -19,6 +19,25 @@ DEFAULT_API_URL = os.getenv("AGENT_API_URL", "http://localhost:8000")
 # podem levar mais de 120s na primeira resposta; ajustável via env.
 AGENT_API_TIMEOUT = float(os.getenv("AGENT_API_TIMEOUT", "300"))
 
+# URL da UI do Phoenix (deriva do endpoint OTEL).
+PHOENIX_UI_URL = os.getenv(
+    "PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006/v1/traces"
+).replace("/v1/traces", "")
+
+# Prompts de um clique para o demo (evita digitar ao vivo).
+SUGGESTED_PROMPTS = {
+    "retailer_app": [
+        "Quero 3 cervejas Amstel Ultra",
+        "Adiciona 1 Torcida Cebola",
+        "Pode fechar o pedido",
+    ],
+    "inventory_app": [
+        "Quais produtos estão em ruptura?",
+        "Produtos com excesso de estoque",
+        "Quais os mais vendidos?",
+    ],
+}
+
 
 st.set_page_config(
     page_title=PAGE_TITLE,
@@ -305,10 +324,10 @@ def product_columns() -> list[str]:
     ]
 
 
-def render_table(title: str, df: pd.DataFrame, badge: str) -> None:
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+def render_table(df: pd.DataFrame, badge: str) -> None:
+    # Apenas o selo verde explicando a seção (sem card branco vazio nem
+    # subtítulo redundante — a aba já nomeia a seção).
     st.markdown(f'<span class="badge">{badge}</span>', unsafe_allow_html=True)
-    st.subheader(title)
 
     available_columns = [
         column for column in product_columns() if column in df.columns
@@ -318,7 +337,6 @@ def render_table(title: str, df: pd.DataFrame, badge: str) -> None:
         use_container_width=True,
         hide_index=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_dashboard(df: pd.DataFrame) -> None:
@@ -366,27 +384,24 @@ def render_dashboard(df: pd.DataFrame) -> None:
 
     with tab_rupture:
         render_table(
-            "Produtos em ruptura",
             groups["rupture"],
-            "vende mas está perto de acabar",
+            "Ruptura — vende mas está perto de acabar",
         )
 
     with tab_obsolete:
         render_table(
-            "Produtos obsoletos",
             groups["obsolete"],
-            "baixo giro, inativo ou vencido",
+            "Obsoletos — baixo giro, inativo ou vencido",
         )
 
     with tab_excess:
         render_table(
-            "Produtos com excesso",
             groups["excess"],
-            "cobertura por muito tempo",
+            "Excesso — cobertura alta, parado há muito tempo",
         )
 
     with tab_table:
-        render_table("Base filtrada", filtered, f"{len(filtered)} produtos")
+        render_table(filtered, f"Base filtrada — {len(filtered)} produtos")
 
     with tab_agent:
         render_agent_chat()
@@ -445,55 +460,174 @@ def call_agent(
     return text or "Não consegui extrair a resposta do agente."
 
 
-def render_agent_chat() -> None:
-    st.subheader("Converse com o agente")
-    st.caption("Requer `adk api_server` rodando em paralelo.")
+def active_model_label() -> str:
+    """Rótulo curto do provider/modelo ativo (talking point do demo)."""
+    provider = os.getenv("MODEL_PROVIDER", "gemini").lower()
+    if provider in {"openai", "litellm"}:
+        return f"openai · {os.getenv('LITELLM_MODEL', '?')}"
+    if provider in {"gemini", "google"}:
+        return f"gemini · {os.getenv('MODEL', '?')}"
+    if provider == "ollama":
+        return f"ollama · {os.getenv('OLLAMA_MODEL', '?')}"
+    return provider
 
-    api_url = st.text_input(
-        "ADK API URL",
-        value=DEFAULT_API_URL,
-    )
-    app_name = st.selectbox(
-        "Agente",
-        ["inventory_app", "retailer_app"],
-    )
+
+def reset_chat() -> None:
+    """Zera a conversa: nova sessão (carrinho/estado do agente do zero)."""
+    st.session_state.chat_session_id = f"demo-{uuid.uuid4().hex[:8]}"
+    st.session_state.chat_messages = []
+
+
+def fetch_cart(
+    api_url: str,
+    app_name: str,
+    user_id: str,
+    session_id: str,
+) -> list[dict[str, Any]]:
+    """Só o carrinho da sessão do agente. Extrai exclusivamente a chave 'cart' —
+    o restante do estado interno (seleção, buscas, etc.) nunca é exposto."""
+    try:
+        response = requests.get(
+            f"{api_url}/apps/{app_name}/users/{user_id}/sessions/{session_id}",
+            timeout=10,
+        )
+        if response.status_code != 200:
+            return []
+        return response.json().get("state", {}).get("cart", []) or []
+    except Exception:
+        return []
+
+
+def render_cart_panel(cart: list[dict[str, Any]]) -> None:
+    """Resumo de pedido voltado ao cliente: itens e total, nada além disso."""
+    with st.container(border=True):
+        st.markdown('<span class="badge">🛒 Pedido</span>', unsafe_allow_html=True)
+
+        if not cart:
+            st.caption(
+                "Nenhum item ainda. Os produtos aparecem aqui durante a conversa."
+            )
+            return
+
+        total = 0.0
+        for item in cart:
+            quantity = item.get("quantidade") or 0
+            price = item.get("preco_unitario") or 0.0
+            subtotal = quantity * price
+            total += subtotal
+            st.markdown(
+                f"**{quantity}×** {item.get('descricao_completa', '')}"
+                f"<br><span style='color:#64748b;font-size:13px'>{money(subtotal)}</span>",
+                unsafe_allow_html=True,
+            )
+        st.divider()
+        st.markdown(
+            "<span style='color:#64748b;font-size:12px;font-weight:700;"
+            "text-transform:uppercase'>Total</span><br>"
+            f"<span style='font-size:24px;font-weight:800;color:#0f766e'>"
+            f"{money(total)}</span>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_agent_chat() -> None:
+    head_left, head_right = st.columns([3, 1])
+    with head_left:
+        st.subheader("Converse com o agente")
+    with head_right:
+        st.markdown(
+            f'<div style="text-align:right;margin-top:10px">'
+            f'<span class="badge">{active_model_label()}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+    sel_col, url_col = st.columns([1, 2])
+    with sel_col:
+        app_name = st.selectbox(
+            "Agente",
+            ["retailer_app", "inventory_app"],
+            key="agent_select",
+        )
+    with url_col:
+        api_url = st.text_input("ADK API URL", value=DEFAULT_API_URL).rstrip("/")
+
+    # Trocar de agente começa uma conversa nova (evita vazar sessão).
+    if st.session_state.get("active_app") != app_name:
+        st.session_state.active_app = app_name
+        reset_chat()
 
     if "chat_session_id" not in st.session_state:
         st.session_state.chat_session_id = f"demo-{uuid.uuid4().hex[:8]}"
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
 
-    for message in st.session_state.chat_messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    act_col, info_col = st.columns([1, 3])
+    with act_col:
+        if st.button("🗑️ Nova conversa", use_container_width=True):
+            reset_chat()
+            st.rerun()
+    with info_col:
+        st.caption(f"Observabilidade: [Phoenix]({PHOENIX_UI_URL})")
 
-    prompt = st.chat_input("Pergunte sobre estoque, ruptura, excesso ou vendas")
+    # Prompts de um clique (roteiro do demo).
+    pending: str | None = None
+    suggestions = SUGGESTED_PROMPTS.get(app_name, [])
+    if suggestions:
+        st.caption("Sugestões:")
+        for col, text in zip(st.columns(len(suggestions)), suggestions):
+            if col.button(text, key=f"sugg-{app_name}-{text}", use_container_width=True):
+                pending = text
+
+    chat_col, cart_col = st.columns([2, 1])
+
+    with chat_col:
+        if not st.session_state.chat_messages:
+            hint = (
+                "👋 Comece um pedido — ex.: peça uma cerveja e eu sugiro o que levar junto."
+                if app_name == "retailer_app"
+                else "👋 Pergunte sobre o estoque — ruptura, excesso, obsoletos ou mais vendidos."
+            )
+            st.info(hint)
+
+        for message in st.session_state.chat_messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    with cart_col:
+        if app_name == "retailer_app":
+            render_cart_panel(
+                fetch_cart(
+                    api_url,
+                    app_name,
+                    "streamlit-user",
+                    st.session_state.chat_session_id,
+                )
+            )
+
+    prompt = st.chat_input(
+        "Pergunte sobre estoque, vendas, ou faça um pedido"
+    ) or pending
 
     if prompt:
         st.session_state.chat_messages.append(
             {"role": "user", "content": prompt}
         )
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
+        try:
             with st.spinner("Consultando agente..."):
-                try:
-                    answer = call_agent(
-                        api_url=api_url.rstrip("/"),
-                        app_name=app_name,
-                        user_id="streamlit-user",
-                        session_id=st.session_state.chat_session_id,
-                        message=prompt,
-                    )
-                except Exception as exc:
-                    answer = f"Erro ao chamar o agente: {exc}"
-
-                st.markdown(answer)
+                answer = call_agent(
+                    api_url=api_url,
+                    app_name=app_name,
+                    user_id="streamlit-user",
+                    session_id=st.session_state.chat_session_id,
+                    message=prompt,
+                )
+        except Exception as exc:
+            answer = f"Erro ao chamar o agente: {exc}"
 
         st.session_state.chat_messages.append(
             {"role": "assistant", "content": answer}
         )
+        st.rerun()
 
 
 def main() -> None:
